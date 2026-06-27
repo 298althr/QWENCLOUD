@@ -185,9 +185,10 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
 CREATE TABLE IF NOT EXISTS qwen_conversations (
     id              SERIAL PRIMARY KEY,
-    conversation_id VARCHAR(200) UNIQUE NOT NULL,  -- Qwen conversation ID
+    conversation_id VARCHAR(200) UNIQUE NOT NULL,  -- Qwen conversation ID (first response_id)
     user_id         INTEGER REFERENCES users(id),
     source          VARCHAR(20) NOT NULL,          -- 'telegram', 'dashboard'
+    last_response_id VARCHAR(200),                 -- last response_id for previous_response_id chain
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_active     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

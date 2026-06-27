@@ -14,6 +14,7 @@
 | What you need | Where to find it |
 |---|---|
 | **Full build plan** (12-day schedule, checklists, validation) | [`docs/TRACK4-BUILD-PLAN.md`](docs/TRACK4-BUILD-PLAN.md) |
+| **Gap analysis & optimized plan** (corrections to original plan) | [`docs/GAP-ANALYSIS.md`](docs/GAP-ANALYSIS.md) |
 | **System architecture** (how components connect) | [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md) |
 | **Data flow** (how a message travels through the system) | [`docs/architecture/data-flow.md`](docs/architecture/data-flow.md) |
 | **Security architecture** (SAF 7-layer framework) | [`docs/architecture/security-architecture.md`](docs/architecture/security-architecture.md) |
@@ -108,7 +109,7 @@ TRACK4/
 
 | Phase | Days | Status |
 |---|---|---|
-| Phase 1: Foundation | Days 1-3 (Jun 27-29) | Day 1 ✅ — in progress |
+| Phase 1: Foundation | Days 1-3 (Jun 27-29) | ✅ Complete (Days 1-3) |
 | Phase 2: Memory & Intelligence | Days 4-6 (Jun 30-Jul 2) | Not started |
 | Phase 3: UI & Polish | Days 7-9 (Jul 3-5) | Not started |
 | Phase 4: Cloud Deploy & Submit | Days 10-12 (Jul 6-8) | Not started |

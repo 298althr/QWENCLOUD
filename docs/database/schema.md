@@ -30,7 +30,7 @@ During implementation, it will be at: `backend/src/memory/schema.sql`
 | `audit_log` | Immutable record of all operations | `operation`, `actor`, `memory_layer`, `result` | **Immutable** — UPDATE/DELETE triggers prevent modification |
 | `users` | User accounts | `username`, `password_hash`, `totp_secret`, `is_active` | |
 | `sessions` | JWT sessions | `token`, `user_id` (FK), `expires_at` | |
-| `qwen_conversations` | Qwen Conversations API mapping | `conversation_id`, `user_id` (FK), `persona_id` (FK) | Cross-device session continuity |
+| `qwen_conversations` | Qwen Responses API session mapping | `conversation_id`, `user_id` (FK), `last_response_id` | Cross-device session continuity via `previous_response_id` |
 
 ## pgvector Configuration
 

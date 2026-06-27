@@ -82,14 +82,20 @@ async function main() {
     }
   } catch (e) { bad("immutability", e.message); }
 
-  // 6. Conversations API wrapper — create + persist
-  console.log("\n[6] Conversations API wrapper (create + persist)");
+  // 6. Conversations API — Responses API with previous_response_id
+  console.log("\n[6] Conversations API (Responses API + previous_response_id)");
   try {
-    const { createConversation, getOrCreateConversation } = require("../src/qwen/conversations");
-    const c1 = await createConversation({ source: "test" });
-    const c2 = await getOrCreateConversation({ source: "test" });
-    if (c1.conversationId && c2.conversationId) ok(`created ${c1.conversationId.slice(0,24)}…, reuse ${c2.conversationId === c1.conversationId ? "same" : "new"}`);
-    else bad("conversations", "no conversationId returned");
+    const { startConversation, sendInConversation, getConversation } = require("../src/qwen/conversations");
+    const c1 = await startConversation({
+      source: "test",
+      firstMessage: "My name is Alice. Remember it.",
+      instructions: "You are ALTHR Autopilot, a server ops agent.",
+    });
+    const c2 = await sendInConversation({ conversationId: c1.responseId, message: "What is my name?" });
+    const found = await getConversation({ source: "test" });
+    const remembered = c2.outputText?.toLowerCase().includes("alice");
+    if (remembered && found?.lastResponseId) ok(`cross-turn context works (remembered "Alice", last_response_id stored)`);
+    else bad("conversations", `remembered=${remembered}, found=${!!found}`);
   } catch (e) { bad("conversations", e.message); }
 
   console.log(`\n=== Day 3 Result: ${pass} passed, ${fail} failed ===\n`);

@@ -898,13 +898,15 @@ module.exports = { calculateDQS };
 - [ ] Streaming works: `stream: true` returns chunks with `delta.content` and `delta.tool_calls`
 
 **Day 3: Decision Pipeline + SAF + Conversations API**
-- [ ] Implement Certainty-Driven Decision Pipeline (7 stages) using `enable_thinking: true`, `preserve_thinking: true`
-- [ ] Implement SAF 7-layer check function (see Section 5C stub) — every action passes through
-- [ ] Set up Qwen Conversations API for cross-device session continuity:
-  - [ ] Create conversation on first user connect: `const conv = await qwen.conversations.create()`
-  - [ ] Store `conversation_id` in `qwen_conversations` table
-  - [ ] Pass `conversation` parameter to `responses.create()` — server manages context
-  - [ ] Same `conversation_id` works across Telegram and web dashboard
+- [x] Implement Certainty-Driven Decision Pipeline (7 stages) using `enable_thinking: true`, `preserve_thinking: true`
+- [x] Implement SAF 7-layer check function (see Section 5C stub) — every action passes through
+- [x] Set up Qwen cross-device session continuity via Responses API + `previous_response_id`:
+  - [x] **CORRECTION (GAP-1):** The "Conversations API" is NOT `qwen.conversations.create()`. It is the Responses API with `previous_response_id`. See `docs/GAP-ANALYSIS.md`.
+  - [x] Start conversation: `qwen.responses.create({ model, input, instructions })` → store `response.id`
+  - [x] Continue: `qwen.responses.create({ model, input, previous_response_id: lastId })`
+  - [x] Store `conversation_id` (first response_id) + `last_response_id` in `qwen_conversations` table
+  - [x] Same `last_response_id` chain works across Telegram and web dashboard
+  - [x] **CORRECTION (GAP-2):** Responses API base URL is `/compatible-mode/v1` (same as Chat), NOT the deprecated `/api/v2/apps/protocols/` path
 - [ ] Build approval/escalation system:
   - [ ] High confidence (>0.85) + low risk → auto-execute
   - [ ] Medium confidence (0.5-0.85) OR medium risk → require human approval

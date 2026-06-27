@@ -25,12 +25,40 @@ The Qwen AI Engine is the reasoning core of ALTHR Autopilot. It converts natural
 
 ## Qwen API Endpoints
 
-| API | Base URL | Usage |
-|---|---|---|
-| Chat Completions | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | Intent parsing, function calling, thinking mode, structured output |
-| Responses | `https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1` | Conversations API, MCP tools |
-| Embeddings | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | `text-embedding-v4` for memory vectorization |
-| Conversations | `https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1` | Cross-device session management |
+> **IMPORTANT:** All endpoints use the same base URL. The legacy
+> `/api/v2/apps/protocols/compatible-mode/v1` path is being deprecated.
+> See `docs/GAP-ANALYSIS.md` (GAP-1, GAP-2) for details.
+
+| API | Endpoint | Base URL | Usage |
+|---|---|---|---|
+| Chat Completions | `POST /chat/completions` | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | Intent parsing, function calling, thinking mode, structured output |
+| Responses | `POST /responses` | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | Multi-turn conversation via `previous_response_id`, built-in tools |
+| Embeddings | `POST /embeddings` | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | `text-embedding-v4` for memory vectorization |
+
+### Multi-Turn Conversation (formerly "Conversations API")
+
+The Qwen "Conversations API" is **not** a separate resource. Cross-device
+session continuity is achieved via the **Responses API** with the
+`previous_response_id` parameter:
+
+```javascript
+// Round 1
+const r1 = await qwen.responses.create({ model: "qwen3.7-plus", input: "My name is Alice." });
+// r1.id = "resp_xxx"
+
+// Round 2 — Qwen remembers context via previous_response_id
+const r2 = await qwen.responses.create({
+  model: "qwen3.7-plus",
+  input: "What is my name?",
+  previous_response_id: r1.id,  // server manages context
+});
+// r2.output_text = "Your name is Alice."
+```
+
+- Response IDs expire after **7 days**
+- System instructions should be passed via the `instructions` parameter
+- The `qwen_conversations` table stores the `last_response_id` chain for
+  cross-device continuity (Telegram ↔ dashboard)
 
 ## SDK Setup
 
@@ -79,5 +107,6 @@ const qwen = new OpenAI({
 
 - Thinking mode only supports `tool_choice: "auto"` or `"none"` — disable thinking to force a tool
 - `text-embedding-v4` batch limit: 10 texts per API call, max 8,192 tokens per batch
-- Conversations API message items expire after 7 days — pass system instructions via `instructions` parameter
+- Responses API `previous_response_id` expires after 7 days — pass system instructions via `instructions` parameter
 - Context window: hard cap 4096 tokens for memory recall + 4096 for conversation + 1024 for system prompt
+- The legacy `/api/v2/apps/protocols/compatible-mode/v1` path is deprecated — use `/compatible-mode/v1` for all endpoints

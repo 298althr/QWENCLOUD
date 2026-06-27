@@ -11,9 +11,10 @@ const OpenAI = require("openai");
 const CHAT_BASE_URL =
   process.env.QWEN_BASE_URL ||
   "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+// Responses API uses the SAME base URL as Chat Completions (the legacy
+// /api/v2/apps/protocols/ path is being deprecated — see GAP-ANALYSIS.md).
 const RESPONSES_BASE_URL =
-  process.env.QWEN_RESPONSES_BASE_URL ||
-  "https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1";
+  process.env.QWEN_RESPONSES_BASE_URL || CHAT_BASE_URL;
 
 const apiKey = process.env.DASHSCOPE_API_KEY;
 if (!apiKey) {
@@ -21,11 +22,15 @@ if (!apiKey) {
   console.warn("[qwen] DASHSCOPE_API_KEY not set — LLM calls will fail.");
 }
 
-// Primary client (Chat Completions + Embeddings)
+// Primary client (Chat Completions + Embeddings + Responses)
+// All three endpoints live under the same /compatible-mode/v1 base URL.
 const qwen = new OpenAI({ apiKey, baseURL: CHAT_BASE_URL });
 
-// Secondary client for the Responses / Conversations API
-const qwenResponses = new OpenAI({ apiKey, baseURL: RESPONSES_BASE_URL });
+// Responses API client (same base URL; kept as a separate alias for clarity).
+// Used for multi-turn conversation via previous_response_id (the Qwen
+// "Conversations API" is the Responses API with previous_response_id, NOT
+// a separate conversations.create() resource — see GAP-ANALYSIS.md GAP-1).
+const qwenResponses = qwen;
 
 // Canonical model names used across the project
 const MODELS = {
