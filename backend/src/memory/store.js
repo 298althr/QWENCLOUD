@@ -43,8 +43,8 @@ async function store(layer, content, metadata = {}) {
   switch (layer) {
     case "M1": {
       row = (await query(
-        `INSERT INTO m1_raw_events (event_type, raw_data, severity) VALUES ($1, $2, $3) RETURNING id, timestamp`,
-        [metadata.event_type || "agent_note", { content, ...metadata }, metadata.severity || "info"]
+        `INSERT INTO m1_raw_events (event_type, raw_data, severity) VALUES ($1, $2::jsonb, $3) RETURNING id, timestamp`,
+        [metadata.event_type || "agent_note", JSON.stringify({ content, ...metadata }), metadata.severity || "info"]
       )).rows[0];
       // Push to Redis hot cache (best-effort)
       pushM1ToRedis({ id: row.id, timestamp: row.timestamp, event_type: metadata.event_type || "agent_note", content, severity: metadata.severity || "info" });
@@ -52,16 +52,16 @@ async function store(layer, content, metadata = {}) {
     }
     case "M2":
       return (await query(
-        `INSERT INTO m2_structured_data (source, structured_json, server_id) VALUES ($1, $2, $3) RETURNING id`,
-        [metadata.source || "agent", { content, ...metadata }, metadata.server_id || "default"]
+        `INSERT INTO m2_structured_data (source, structured_json, server_id) VALUES ($1, $2::jsonb, $3) RETURNING id`,
+        [metadata.source || "agent", JSON.stringify({ content, ...metadata }), metadata.server_id || "default"]
       )).rows[0];
     case "M3":
       return (await query(
-        `INSERT INTO m3_operational (sop_name, trigger, steps_json, auto_generated) VALUES ($1, $2, $3, $4) RETURNING id`,
+        `INSERT INTO m3_operational (sop_name, trigger, steps_json, auto_generated) VALUES ($1, $2, $3::jsonb, $4) RETURNING id`,
         [
           metadata.sop_name || content.slice(0, 80),
           metadata.trigger || "manual",
-          metadata.steps_json || [{ step: content }],
+          JSON.stringify(metadata.steps_json || [{ step: content }]),
           !!metadata.auto_generated,
         ]
       )).rows[0];
@@ -79,11 +79,11 @@ async function store(layer, content, metadata = {}) {
       )).rows[0];
     case "M5":
       return (await query(
-        `INSERT INTO m5_decision (action_id, context, alternatives_json, confidence, dq_score, chosen_action, reasoning, risk_level) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+        `INSERT INTO m5_decision (action_id, context, alternatives_json, confidence, dq_score, chosen_action, reasoning, risk_level) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8) RETURNING id`,
         [
           metadata.action_id,
           metadata.context || content,
-          metadata.alternatives_json || [],
+          JSON.stringify(metadata.alternatives_json || []),
           metadata.confidence ?? 0,
           metadata.dq_score ?? null,
           metadata.chosen_action || content,
