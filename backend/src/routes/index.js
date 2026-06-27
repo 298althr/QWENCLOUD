@@ -12,6 +12,9 @@ router.use("/approvals", require("./approvals"));
 router.use("/audit", require("./audit"));
 router.use("/health/server", require("./server-health"));
 
+// Day 4 routes
+router.use("/memory", require("./memory"));
+
 // Day 6+ routes (added as built)
 // router.use("/processes", require("./processes"));
 // router.use("/ports", require("./ports"));
