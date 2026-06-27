@@ -1,6 +1,21 @@
+"use client";
+
+import { useEffect } from "react";
 import HealthCard from "@/components/HealthCard";
+import ServerHealth from "@/components/ServerHealth";
+import ApprovalCard from "@/components/ApprovalCard";
+import { onAnomalyAlert, onApprovalNeeded } from "@/lib/websocket";
+import { useAgentStore } from "@/stores/agent-store";
 
 export default function HomePage() {
+  const { addAlert, addApproval } = useAgentStore();
+
+  useEffect(() => {
+    const off1 = onAnomalyAlert((a) => addAlert(a));
+    const off2 = onApprovalNeeded((a: any) => addApproval({ action_id: a.anomalyId || a.action_id, action: a.action || "unknown", confidence: Number(a.confidence) || 0, risk_level: a.risk_level || "medium", timestamp: new Date().toISOString() }));
+    return () => { off1(); off2(); };
+  }, [addAlert, addApproval]);
+
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
@@ -21,25 +36,10 @@ export default function HomePage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="card-glow lg:col-span-2 p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-500">
-            Active Agent Sessions
-          </h2>
-          <p className="text-sm text-ink-600">
-            Agent console wiring lands in Phase 2. The reasoning-chain stream
-            (Qwen <code className="text-gold-400">reasoning_content</code>) will
-            appear here live.
-          </p>
+        <div className="lg:col-span-2">
+          <ServerHealth />
         </div>
-        <div className="card p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-500">
-            Pending Approvals
-          </h2>
-          <p className="text-sm text-ink-600">
-            Human-in-the-loop approvals (Telegram + dashboard) appear here once
-            the Certainty Pipeline is wired (Day 3).
-          </p>
-        </div>
+        <ApprovalCard />
       </section>
     </div>
   );

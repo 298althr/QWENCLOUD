@@ -24,6 +24,12 @@ router.use("/processes", require("./processes"));
 router.use("/ports", require("./ports"));
 router.use("/docker", require("./docker"));
 
+// Day 7 routes
+router.use("/command", require("./command"));
+router.use("/file", require("./file"));
+router.use("/deployments", require("./deploy"));
+router.use("/security", require("./security"));
+
 // Day 6+ routes (added as built)
 // router.use("/processes", require("./processes"));
 // router.use("/ports", require("./ports"));
