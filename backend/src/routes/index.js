@@ -19,6 +19,11 @@ router.use("/memory", require("./memory"));
 router.use("/analytics", require("./analytics"));
 router.use("/learning", require("./learning"));
 
+// Day 6 routes
+router.use("/processes", require("./processes"));
+router.use("/ports", require("./ports"));
+router.use("/docker", require("./docker"));
+
 // Day 6+ routes (added as built)
 // router.use("/processes", require("./processes"));
 // router.use("/ports", require("./ports"));

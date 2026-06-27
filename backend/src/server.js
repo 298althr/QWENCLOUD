@@ -52,6 +52,7 @@ try {
 const { handleAgentMessage } = require("./pipeline/orchestrator");
 const { approveAction, rejectAction } = require("./pipeline/approvals");
 const { getServerHealth } = require("./qwen/toolExecutor");
+const monitor = require("./monitors/monitor");
 
 io.on("connection", (socket) => {
   // eslint-disable-next-line no-console
@@ -98,6 +99,24 @@ io.on("connection", (socket) => {
   socket.on("cancel_action", ({ action_id }) => {
     socket.emit("action_update", { stage: "cancelled", action_id });
   });
+
+  // Day 6: monitoring control events
+  socket.on("monitor:start", () => {
+    monitor.start(io);
+    socket.emit("monitor:status", { running: true });
+  });
+  socket.on("monitor:stop", () => {
+    monitor.stop();
+    socket.emit("monitor:status", { running: false });
+  });
+  socket.on("monitor:tick", async () => {
+    try {
+      const metrics = await monitor.collectMetrics();
+      socket.emit("server_metrics", metrics);
+    } catch (e) {
+      socket.emit("action_update", { stage: "error", error: e.message });
+    }
+  });
 });
 
 // ---- Boot ----
@@ -112,6 +131,15 @@ async function boot() {
     require("./telegram/bot").start(io);
   } catch (e) {
     console.warn("[telegram] bot start skipped:", e.message);
+  }
+
+  // Start monitoring loop (unless explicitly disabled)
+  if (process.env.MONITOR_DISABLE !== "true") {
+    try {
+      monitor.start(io);
+    } catch (e) {
+      console.warn("[monitor] start skipped:", e.message);
+    }
   }
 
   server.listen(PORT, () => {
