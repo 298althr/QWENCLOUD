@@ -1039,12 +1039,12 @@ module.exports = { calculateDQS };
 ### Phase 4: Cloud Deployment & Submission (Days 10-12) — Jul 6-8
 
 **Day 10: Alibaba Cloud Deployment**
-- [ ] Provision Alibaba Cloud ECS instance (Ubuntu 22.04)
+- [ ] Claim Alibaba Cloud ECS free trial via [Free Trial Center](https://free.alibabacloud.com/) (1C1G individual / 2C2G enterprise) OR provision a pay-as-you-go 2C4G instance (~$18–25 for 12 days)
 - [ ] Install Docker + Docker Compose on ECS
 - [ ] Create `docker-compose.prod.yml` with services:
   - [ ] `althr-autopilot` (Node.js backend + Next.js frontend)
-  - [ ] `postgres` (Alibaba Cloud RDS or containerized PG)
-  - [ ] `redis` (Alibaba Cloud Redis or containerized)
+  - [ ] `postgres` (containerized PG with pgvector — avoid RDS cost)
+  - [ ] `redis` (containerized Redis — avoid managed Redis cost)
 - [ ] Set up Alibaba Cloud OSS bucket for log backups
 - [ ] Configure Alibaba Cloud Cloud Monitor for external health checks
 - [ ] Write `backend/src/utils/alibaba.js` with real Alibaba Cloud SDK calls (see Section 8)

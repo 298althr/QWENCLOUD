@@ -227,11 +227,12 @@ The plan's API reference (`docs/api/api-reference.md`) specifies these routes th
 5. **Validation:** All 12 Telegram commands work, NL → pipeline → approval → execute → learn
 
 ### Day 10: Alibaba Cloud Deployment
-1. Provision ECS, install Docker
-2. Create `docker-compose.prod.yml`
-3. Write `backend/src/utils/alibaba.js` with real SDK calls (ECS, OSS, Cloud Monitor)
-4. Deploy, verify, set up public access
-5. **Validation:** Public URL works, `alibaba.js` proof file exists (R2 compliance)
+1. Claim ECS free trial via Free Trial Center (1C1G individual / 2C2G enterprise) OR use pay-as-you-go (~$18–25 for 12 days)
+2. Install Docker on ECS; use containerized PostgreSQL + Redis (no RDS/managed Redis cost)
+3. Create `docker-compose.prod.yml`
+4. Write `backend/src/utils/alibaba.js` with real SDK calls (ECS, OSS, Cloud Monitor)
+5. Deploy, verify, set up public access (ngrok or DNS)
+6. **Validation:** Public URL works, `alibaba.js` proof file exists (R2 compliance)
 
 ### Day 11: Documentation & Demo
 1. Write comprehensive README
