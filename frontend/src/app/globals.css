@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #070a12;
+  color: #e6e9f2;
+  min-height: 100%;
+}
+
+body {
+  font-feature-settings: "ss01", "cv01";
+}
+
+/* Subtle gold scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0f1a;
+}
+::-webkit-scrollbar-thumb {
+  background: #27314a;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4768;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-ink-700 bg-ink-850/80 backdrop-blur-sm;
+  }
+  .card-glow {
+    @apply card shadow-glow;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .pill-ok {
+    @apply pill bg-accent-ok/15 text-accent-ok;
+  }
+  .pill-warn {
+    @apply pill bg-accent-warn/15 text-accent-warn;
+  }
+  .pill-crit {
+    @apply pill bg-accent-crit/15 text-accent-crit;
+  }
+  .pill-info {
+    @apply pill bg-accent-info/15 text-accent-info;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-500 hover:bg-ink-800 hover:text-gold-400 transition-colors;
+  }
+  .nav-link-active {
+    @apply bg-ink-800 text-gold-400;
+  }
+}
