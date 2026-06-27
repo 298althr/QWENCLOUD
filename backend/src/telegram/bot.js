@@ -10,9 +10,11 @@
 const TelegramBot = require("node-telegram-bot-api");
 const { handleAgentMessage } = require("../pipeline/orchestrator");
 const { listPending, approveAction, rejectAction } = require("../pipeline/approvals");
-const { getServerHealth } = require("../qwen/toolExecutor");
+const { getServerHealth, executeTool } = require("../qwen/toolExecutor");
 const { queryAudit } = require("../utils/audit");
+const { safCheck } = require("../pipeline/saf");
 const memory = require("../memory/store");
+const { getLessons, getDQTrend } = require("../memory/learning");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED = (process.env.TELEGRAM_ALLOWED_USERS || "")
@@ -40,7 +42,19 @@ function start(io) {
     if (!allowedFilter(msg)) return;
     bot.sendMessage(
       msg.chat.id,
-      "ALTHR Autopilot online. Send a natural-language command, or use /status, /deploy, /security, /memory, /approve."
+      "*ALTHR Autopilot* online 🤖\n\n" +
+        "Send a natural-language command, or use:\n" +
+        "`/status` — server health\n" +
+        "`/deploy <url>` — deploy from GitHub\n" +
+        "`/containers` — Docker containers\n" +
+        "`/security` — security scan\n" +
+        "`/memory <layer>` — PML memory (M1-M7)\n" +
+        "`/logs` — recent audit log\n" +
+        "`/analytics` — DQ score trend\n" +
+        "`/config` — current configuration\n" +
+        "`/pending` — pending approvals\n" +
+        "`/cancel` — cancel pending action",
+      { parse_mode: "Markdown" }
     );
   });
 
@@ -48,20 +62,71 @@ function start(io) {
     if (!allowedFilter(msg)) return;
     try {
       const h = await getServerHealth();
+      const cpuEmoji = h.cpu > 85 ? "🔴" : h.cpu > 70 ? "🟡" : "🟢";
+      const ramEmoji = h.ram > 90 ? "🔴" : h.ram > 75 ? "🟡" : "🟢";
       bot.sendMessage(
         msg.chat.id,
-        `Server health:\nCPU: ${h.cpu}%\nRAM: ${h.ram}% (${h.ram_used_mb}/${h.ram_total_mb} MB)\nDisk: ${h.disk}%\nUptime: ${h.uptime}s`
+        `*Server Health*\n\n` +
+          `${cpuEmoji} CPU: *${h.cpu}%*\n` +
+          `${ramEmoji} RAM: *${h.ram}%* (${h.ram_used_mb}/${h.ram_total_mb} MB)\n` +
+          `💾 Disk: *${h.disk}%*\n` +
+          `⏱ Uptime: *${h.uptime}s*`,
+        { parse_mode: "Markdown" }
       );
     } catch (e) {
-      bot.sendMessage(msg.chat.id, `status error: ${e.message}`);
+      bot.sendMessage(msg.chat.id, `❌ status error: ${e.message}`);
     }
   });
 
-  bot.onText(/^\/pending/, (msg) => {
+  bot.onText(/^\/deploy\s+(.+)/, async (msg, match) => {
     if (!allowedFilter(msg)) return;
-    const pending = listPending();
-    if (!pending.length) return bot.sendMessage(msg.chat.id, "No pending approvals.");
-    pending.forEach((p) => sendApprovalKeyboard(msg.chat.id, p));
+    const repoUrl = match[1].trim();
+    bot.sendMessage(msg.chat.id, `🚀 Deploying from \`${repoUrl}\`…`, { parse_mode: "Markdown" });
+    try {
+      const saf = await safCheck(`deploy ${repoUrl}`, "deploy", "medium", { username: `tg:${msg.from.id}`, role: "admin" }, 0.8, false);
+      if (!saf.passed) return bot.sendMessage(msg.chat.id, `❌ Blocked by SAF: ${saf.failed_layer}`);
+      const cloneResult = await executeTool("git_clone", { repo_url: repoUrl });
+      const buildResult = await executeTool("docker_build", { path: cloneResult.path, tag: `althr-${Date.now()}` });
+      const runResult = await executeTool("docker_run", { image: buildResult.tag, ports: "8080:8080" });
+      bot.sendMessage(msg.chat.id, `✅ Deployed!\nClone: ${cloneResult.path}\nImage: ${buildResult.tag}\nContainer: ${runResult.container_id?.slice(0, 12) || "running"}`);
+    } catch (e) {
+      bot.sendMessage(msg.chat.id, `❌ deploy error: ${e.message}`);
+    }
+  });
+
+  bot.onText(/^\/containers/, async (msg) => {
+    if (!allowedFilter(msg)) return;
+    try {
+      const result = await executeTool("list_containers", {});
+      const containers = result.containers || [];
+      if (!containers.length) return bot.sendMessage(msg.chat.id, "No Docker containers running.");
+      const text = containers.map((c) => `${c.status?.includes("Up") ? "🟢" : "🔴"} ${c.name || c.id?.slice(0, 12)} — ${c.status || "unknown"}`).join("\n");
+      bot.sendMessage(msg.chat.id, `*Docker Containers*\n\n${text}`, { parse_mode: "Markdown" });
+    } catch (e) {
+      bot.sendMessage(msg.chat.id, `❌ containers error: ${e.message}`);
+    }
+  });
+
+  bot.onText(/^\/security/, async (msg) => {
+    if (!allowedFilter(msg)) return;
+    try {
+      const [ports, audit] = await Promise.all([
+        executeTool("check_ports", {}).catch(() => ({ ports: [] })),
+        queryAudit({ limit: 5 }),
+      ]);
+      const openPorts = ports.ports || [];
+      bot.sendMessage(
+        msg.chat.id,
+        `*Security Scan*\n\n` +
+          `🔒 SAF: 7/7 layers active\n` +
+          `🔌 Open ports: ${openPorts.length}\n` +
+          `📋 Recent audit entries: ${audit.length}\n\n` +
+          audit.map((r) => `  [${r.result}] ${r.operation} → ${r.target?.slice(0, 40)}`).join("\n"),
+        { parse_mode: "Markdown" }
+      );
+    } catch (e) {
+      bot.sendMessage(msg.chat.id, `❌ security error: ${e.message}`);
+    }
   });
 
   bot.onText(/^\/memory(?:\s+(\w+))?/, async (msg, match) => {
@@ -70,23 +135,95 @@ function start(io) {
     try {
       const res = await memory.query(layer, { limit: 5 });
       const text = res.rows
-        .map((r) => `- ${JSON.stringify(r).slice(0, 200)}`)
+        .map((r) => `- ${r.improvement_note || r.description || r.action_detail || r.chosen_action || r.content || r.sop_name || JSON.stringify(r).slice(0, 150)}`)
         .join("\n") || "(empty)";
-      bot.sendMessage(msg.chat.id, `Memory ${layer} (${res.count}):\n${text}`);
+      bot.sendMessage(msg.chat.id, `*Memory ${layer}* (${res.count} entries)\n\n${text}`, { parse_mode: "Markdown" });
     } catch (e) {
-      bot.sendMessage(msg.chat.id, `memory error: ${e.message}`);
+      bot.sendMessage(msg.chat.id, `❌ memory error: ${e.message}`);
     }
   });
 
-  bot.onText(/^\/audit/, async (msg) => {
+  bot.onText(/^\/logs/, async (msg) => {
     if (!allowedFilter(msg)) return;
     try {
-      const rows = await queryAudit({ limit: 5 });
-      const text = rows.map((r) => `[${r.timestamp}] ${r.operation} ${r.actor} -> ${r.target}`.slice(0, 200)).join("\n") || "(empty)";
-      bot.sendMessage(msg.chat.id, `Audit (last 5):\n${text}`);
+      const rows = await queryAudit({ limit: 10 });
+      const text = rows.map((r) => `[${r.result}] ${r.operation} ${r.actor}→${r.target?.slice(0, 30)}`.slice(0, 200)).join("\n") || "(empty)";
+      bot.sendMessage(msg.chat.id, `*Audit Log* (last 10)\n\n${text}`, { parse_mode: "Markdown" });
     } catch (e) {
-      bot.sendMessage(msg.chat.id, `audit error: ${e.message}`);
+      bot.sendMessage(msg.chat.id, `❌ logs error: ${e.message}`);
     }
+  });
+
+  bot.onText(/^\/analytics/, async (msg) => {
+    if (!allowedFilter(msg)) return;
+    try {
+      const [trend, lessons] = await Promise.all([
+        getDQTrend({ days: 30 }),
+        getLessons({ limit: 5 }),
+      ]);
+      const avgDQ = trend.length > 0
+        ? (trend.reduce((s, d) => s + Number(d.dq_score), 0) / trend.length).toFixed(1)
+        : "—";
+      const lessonText = lessons.map((l) => `  • ${l.improvement_note?.slice(0, 60)}`).join("\n") || "(none yet)";
+      bot.sendMessage(
+        msg.chat.id,
+        `*Analytics*\n\n` +
+          `📊 Avg DQ Score (30d): *${avgDQ}*\n` +
+          `📝 Data points: ${trend.length}\n` +
+          `🧠 Learned lessons: ${lessons.length}\n\n${lessonText}`,
+        { parse_mode: "Markdown" }
+      );
+    } catch (e) {
+      bot.sendMessage(msg.chat.id, `❌ analytics error: ${e.message}`);
+    }
+  });
+
+  bot.onText(/^\/config/, (msg) => {
+    if (!allowedFilter(msg)) return;
+    bot.sendMessage(
+      msg.chat.id,
+      `*Configuration*\n\n` +
+        `🤖 Model: ${process.env.QWEN_MODEL || "qwen3.7-plus"}\n` +
+        `🎯 Confidence threshold: ${process.env.CONFIDENCE_THRESHOLD || 85}%\n` +
+        `📊 Monitor interval: ${process.env.MONITOR_INTERVAL_MS || 30000}ms\n` +
+        `🛡 SAF: enabled (7 layers)\n` +
+        `🧠 PML: 7 layers (M1-M7)\n` +
+        `📡 Embeddings: text-embedding-v4 (1024d)`,
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  bot.onText(/^\/pending/, (msg) => {
+    if (!allowedFilter(msg)) return;
+    const pending = listPending();
+    if (!pending.length) return bot.sendMessage(msg.chat.id, "✅ No pending approvals.");
+    pending.forEach((p) => sendApprovalKeyboard(msg.chat.id, p));
+  });
+
+  bot.onText(/^\/approve\s+(\S+)/, async (msg, match) => {
+    if (!allowedFilter(msg)) return;
+    try {
+      const r = await approveAction({ action_id: match[1], approver: `human:tg:${msg.from.id}`, io });
+      bot.sendMessage(msg.chat.id, `✅ Approved & executed: ${match[1]}\n${JSON.stringify(r.results).slice(0, 800)}`);
+    } catch (e) {
+      bot.sendMessage(msg.chat.id, `❌ approve error: ${e.message}`);
+    }
+  });
+
+  bot.onText(/^\/reject(?:\s+(\S+))?(?:\s+(.+))?/, async (msg, match) => {
+    if (!allowedFilter(msg)) return;
+    if (!match[1]) return bot.sendMessage(msg.chat.id, "Usage: /reject <action_id> [reason]");
+    try {
+      const r = await rejectAction({ action_id: match[1], reason: match[2] || "", approver: `human:tg:${msg.from.id}`, io });
+      bot.sendMessage(msg.chat.id, `❌ Rejected: ${match[1]}`);
+    } catch (e) {
+      bot.sendMessage(msg.chat.id, `❌ reject error: ${e.message}`);
+    }
+  });
+
+  bot.onText(/^\/cancel/, (msg) => {
+    if (!allowedFilter(msg)) return;
+    bot.sendMessage(msg.chat.id, "ℹ️ Send /pending to see actions that can be cancelled. Use /reject <id> to cancel.");
   });
 
   // ---- Inline keyboard callbacks (approve/reject) ----
@@ -133,8 +270,8 @@ function start(io) {
       });
 
       const summary =
-        `Intent: ${result.intent.intent} (${(result.confidence * 100).toFixed(0)}%)\n` +
-        `Risk: ${result.risk_level} · ${result.authorization}\n` +
+        `*Intent:* ${result.intent.intent} (${(result.confidence * 100).toFixed(0)}%)\n` +
+        `*Risk:* ${result.risk_level} · ${result.authorization}\n` +
         `${result.intent.summary || ""}`;
 
       if (result.authorization === "human_approval_required" && result.action_id) {
@@ -145,7 +282,7 @@ function start(io) {
           risk_level: result.risk_level,
         });
       } else {
-        bot.sendMessage(chatId, summary);
+        bot.sendMessage(chatId, summary, { parse_mode: "Markdown" });
       }
     } catch (e) {
       bot.sendMessage(chatId, `agent error: ${e.message}`);

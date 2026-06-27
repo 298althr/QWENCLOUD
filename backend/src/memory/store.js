@@ -21,6 +21,12 @@ const TABLE_BY_LAYER = {
 // Layers that have an `embedding` column (vector(1024)) for semantic search.
 const EMBEDDED_LAYERS = new Set(["M6", "M7"]);
 
+// Timestamp column name per layer (M3 uses last_updated, not timestamp)
+const TIMESTAMP_COL = {
+  M1: "timestamp", M2: "timestamp", M3: "last_updated",
+  M4: "timestamp", M5: "timestamp", M6: "timestamp", M7: "timestamp",
+};
+
 // Redis key patterns (DB 0: events, DB 1: sessions, DB 2: cache)
 const M1_STREAM_KEY = "m1:events";
 const M1_STREAM_MAXLEN = 10000; // cap the stream length
@@ -144,10 +150,11 @@ async function retrieve(layer, { limit = 10, offset = 0 } = {}) {
   if (!table) throw new Error(`unknown PML layer: ${layer}`);
   // For embedded layers, select all columns except the embedding vector
   const cols = EMBEDDED_LAYERS.has(layer)
-    ? `id, timestamp, ${layer === "M6" ? "action_id, error_type, drift, improvement_note, pattern_hash, reinforcement_count" : "event_type, description, impact, impact_score"}`
+    ? `id, ${TIMESTAMP_COL[layer]} AS timestamp, ${layer === "M6" ? "action_id, error_type, drift, improvement_note, pattern_hash, reinforcement_count" : "event_type, description, impact, impact_score"}`
     : `*`;
+  const tsCol = TIMESTAMP_COL[layer] || "timestamp";
   const res = await query(
-    `SELECT ${cols} FROM ${table} ORDER BY timestamp DESC LIMIT $1 OFFSET $2`,
+    `SELECT ${cols} FROM ${table} ORDER BY ${tsCol} DESC LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
   return res.rows;
