@@ -17,6 +17,16 @@ const SAF_LAYERS = [
 const CRITICAL_ASSETS = ["nginx", "postgres", "redis", "docker", "sshd", "systemd", "kubelet"];
 const IMPORTANT_ASSETS = ["node", "pm2", "nginx-worker", "python", "java"];
 
+// Inherently safe read-only tools — always pass L4 (policy enforcement).
+const SAFE_TOOLS = new Set([
+  "get_server_health",
+  "list_processes",
+  "check_ports",
+  "read_file",
+  "query_memory",
+  "saf_check",
+]);
+
 function classifyAsset(target) {
   if (!target) return "non-critical";
   const t = String(target).toLowerCase();
@@ -60,11 +70,17 @@ async function safCheck(action, target, riskLevel, user, confidence = 0, humanAp
     detail: "Execution is local to the managed server",
   };
 
-  // L4: Policy Enforcement — command whitelist
-  const allowed = isCommandAllowed(action);
+  // L4: Policy Enforcement — command whitelist.
+  // Read-only tools are inherently allowed; otherwise check the command whitelist.
+  const isSafeTool = SAFE_TOOLS.has(String(action).trim());
+  const allowed = isSafeTool || isCommandAllowed(action);
   results.L4 = {
     passed: allowed,
-    detail: allowed ? "Action is in whitelist" : "Action NOT in whitelist",
+    detail: isSafeTool
+      ? "Read-only tool (inherently allowed)"
+      : allowed
+      ? "Action is in whitelist"
+      : "Action NOT in whitelist",
   };
   if (!results.L4.passed) allPassed = false;
 

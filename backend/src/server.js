@@ -49,10 +49,55 @@ try {
 }
 
 // ---- WebSocket ----
+const { handleAgentMessage } = require("./pipeline/orchestrator");
+const { approveAction, rejectAction } = require("./pipeline/approvals");
+const { getServerHealth } = require("./qwen/toolExecutor");
+
 io.on("connection", (socket) => {
   // eslint-disable-next-line no-console
   console.log("[ws] client connected:", socket.id);
   socket.on("disconnect", () => console.log("[ws] disconnected:", socket.id));
+
+  // Client sends an NL agent message over WebSocket; reasoning is streamed back.
+  socket.on("agent_message", async ({ message }) => {
+    if (!message) return;
+    try {
+      let serverState = {};
+      try { serverState = await getServerHealth(); } catch { serverState = {}; }
+      await handleAgentMessage({
+        message,
+        serverState,
+        user: { username: "ws-client", role: "admin" },
+        io,
+        socketId: socket.id,
+        source: "dashboard",
+      });
+    } catch (e) {
+      socket.emit("action_update", { stage: "error", error: e.message });
+    }
+  });
+
+  socket.on("approve_action", async ({ action_id }) => {
+    try {
+      const result = await approveAction({ action_id, approver: "human:ws-client", io });
+      socket.emit("action_update", { stage: "approved", ...result });
+    } catch (e) {
+      socket.emit("action_update", { stage: "error", error: e.message });
+    }
+  });
+
+  socket.on("reject_action", async ({ action_id, reason }) => {
+    try {
+      const result = await rejectAction({ action_id, reason: reason || "", approver: "human:ws-client", io });
+      socket.emit("action_update", { stage: "rejected", ...result });
+    } catch (e) {
+      socket.emit("action_update", { stage: "error", error: e.message });
+    }
+  });
+
+  socket.on("cancel_action", ({ action_id }) => {
+    socket.emit("action_update", { stage: "cancelled", action_id });
+  });
 });
 
 // ---- Boot ----
@@ -61,6 +106,13 @@ const PORT = process.env.PORT || 3000;
 async function boot() {
   // Connect Redis (best-effort; not fatal if down on first boot)
   await connectRedis().catch((e) => console.warn("[redis] connect skipped:", e.message));
+
+  // Start Telegram bot (only if token configured)
+  try {
+    require("./telegram/bot").start(io);
+  } catch (e) {
+    console.warn("[telegram] bot start skipped:", e.message);
+  }
 
   server.listen(PORT, () => {
     // eslint-disable-next-line no-console
