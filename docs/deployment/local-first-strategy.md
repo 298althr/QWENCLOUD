@@ -69,21 +69,19 @@ Access points:
 - API: `http://localhost:3000`
 - Health: `http://localhost:3000/api/health`
 
-## Pre-Submission Checklist (Before Moving to ECS)
+## Pre-Submission Validation
 
-Before deploying to Alibaba Cloud, verify locally:
+Before deploying to Alibaba Cloud, run the complete validation workflow documented in [`docs/deployment/pre-submission-validation.md`](pre-submission-validation.md). It covers:
 
-- [ ] All 10 dashboard pages render without errors
-- [ ] Agent Console streams reasoning and executes commands
-- [ ] Monitoring detects anomalies and streams alerts
-- [ ] Telegram bot handles all 12 commands
-- [ ] Memory/semantic search returns results
-- [ ] DQ trend and lessons endpoints return data
-- [ ] Security audit log is immutable
-- [ ] `docker-compose up -d` starts the full stack cleanly
-- [ ] `backend/src/utils/alibaba.js` exists and imports SDKs
-- [ ] Repo is public on GitHub with MIT license visible
-- [ ] README, architecture diagram, and demo video are ready
+- Docker Desktop health checks
+- Day 3–9 backend validation tests
+- All API endpoint smoke tests
+- Frontend page verification
+- WebSocket alert feed testing
+- Telegram bot command verification
+- SAF and audit immutability checks
+- Git and secret leak checks
+- Cloud-readiness pre-check
 
 ## Cloud Deployment Trigger
 
