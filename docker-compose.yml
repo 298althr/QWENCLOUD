@@ -1,0 +1,79 @@
+# ALTHR Autopilot — Full Docker Compose (local)
+# Brings up backend, frontend, PostgreSQL (pgvector), and Redis.
+# Run: docker-compose up -d --build
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: althr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: althr
+      POSTGRES_PASSWORD: althr
+      POSTGRES_DB: althr_autopilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - althr_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U althr -d althr_autopilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: althr-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - althr_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: althr-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://althr:althr@postgres:5432/althr_autopilot
+      - REDIS_URL=redis://redis:6379
+      - QWEN_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build: ./frontend
+    container_name: althr-frontend
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:3000/api
+      - NEXT_PUBLIC_WS_URL=http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  althr_pgdata:
+  althr_redisdata:

@@ -4,7 +4,7 @@
 const express = require("express");
 const router = express.Router();
 const { handleAgentMessage } = require("../pipeline/orchestrator");
-const { getServerHealth } = require("../qwen/toolExecutor");
+const { get_server_health } = require("../qwen/toolExecutor");
 
 router.post("/", async (req, res) => {
   const { message } = req.body || {};
@@ -18,7 +18,7 @@ router.post("/", async (req, res) => {
   try {
     // Attach current server state to give the pipeline context
     let serverState = {};
-    try { serverState = await getServerHealth(); } catch { serverState = {}; }
+    try { serverState = await get_server_health(); } catch { serverState = {}; }
 
     const result = await handleAgentMessage({
       message,

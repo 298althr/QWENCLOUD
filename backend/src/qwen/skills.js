@@ -34,6 +34,18 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "list_directory",
+      description: "List files and directories at the given path.",
+      parameters: {
+        type: "object",
+        properties: { path: { type: "string", description: "Absolute or relative directory path" } },
+        required: ["path"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "write_file",
       description: "Write content to a file at the given path (overwrites). Admin only.",
       parameters: {
@@ -82,6 +94,14 @@ const TOOLS = [
         },
         required: ["dockerfile", "tag"],
       },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_containers",
+      description: "List running Docker containers with id, name, image, status, and ports. Requires docker socket access.",
+      parameters: { type: "object", properties: {} },
     },
   },
   {

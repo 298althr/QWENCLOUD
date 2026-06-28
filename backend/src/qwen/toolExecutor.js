@@ -50,6 +50,19 @@ async function read_file({ path: p }) {
   }
 }
 
+async function list_directory({ path: p }) {
+  try {
+    const entries = fs.readdirSync(p, { withFileTypes: true });
+    return {
+      ok: true,
+      path: p,
+      entries: entries.map((e) => ({ name: e.name, type: e.isDirectory() ? "directory" : "file" })),
+    };
+  } catch (e) {
+    return { ok: false, path: p, error: e.message };
+  }
+}
+
 async function write_file({ path: p, content }) {
   try {
     fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -90,6 +103,27 @@ async function docker_build({ dockerfile, tag, timeout = 120000 }) {
   fs.writeFileSync(dockerfilePath, dockerfile, "utf8");
   const res = await runShell(`docker build -t ${tag} -f "${dockerfilePath}" .`, timeout);
   return { tag, ...res };
+}
+
+async function list_containers() {
+  const res = await runShell("docker ps --format '{{json .}}'", 15000);
+  if (res.exit_code !== 0) {
+    return { containers: [], error: res.stderr || "docker command failed", raw: res.stdout };
+  }
+  const lines = res.stdout.trim().split("\n").filter(Boolean);
+  const containers = lines.map((line) => {
+    try {
+      const c = JSON.parse(line);
+      return {
+        id: c.ID,
+        name: c.Names,
+        image: c.Image,
+        status: c.Status,
+        ports: c.Ports,
+      };
+    } catch { return { raw: line }; }
+  });
+  return { containers, count: containers.length };
 }
 
 async function git_clone({ repo_url, dest }) {
@@ -139,10 +173,12 @@ async function store_memory({ layer, content, metadata = {} }) {
 const HANDLERS = {
   execute_command,
   read_file,
+  list_directory,
   write_file,
   list_processes,
   check_ports,
   docker_build,
+  list_containers,
   git_clone,
   run_security_scan,
   get_server_health,
@@ -161,4 +197,4 @@ async function executeTool(name, args) {
   }
 }
 
-module.exports = { executeTool, HANDLERS };
+module.exports = { executeTool, HANDLERS, get_server_health, list_containers };

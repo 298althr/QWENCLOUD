@@ -109,17 +109,29 @@ async function main() {
     ok("routes/index loads (agent, approvals, audit, memory, analytics, learning, processes, ports, docker, command, file, deployments, security, server-health)");
   } catch (e) { bad("routes", e.message); }
 
-  // 10. Frontend builds (checked externally, just verify source exists)
-  console.log("\n[10] Frontend source files exist");
+  // 10. Frontend builds (checked externally, just verify source exists or server reachable)
+  console.log("\n[10] Frontend source files exist or frontend server reachable");
   try {
     const fs = require("fs");
     const path = require("path");
+    const http = require("http");
     const frontendSrc = path.join(__dirname, "../../frontend/src");
-    const pages = fs.readdirSync(path.join(frontendSrc, "app"));
-    const components = fs.readdirSync(path.join(frontendSrc, "components"));
-    const lib = fs.readdirSync(path.join(frontendSrc, "lib"));
-    const stores = fs.readdirSync(path.join(frontendSrc, "stores"));
-    ok(`frontend: ${pages.length} app dirs, ${components.length} components, ${lib.length} lib files, ${stores.length} stores`);
+    if (fs.existsSync(frontendSrc)) {
+      const pages = fs.readdirSync(path.join(frontendSrc, "app"));
+      const components = fs.readdirSync(path.join(frontendSrc, "components"));
+      const lib = fs.readdirSync(path.join(frontendSrc, "lib"));
+      const stores = fs.readdirSync(path.join(frontendSrc, "stores"));
+      ok(`frontend: ${pages.length} app dirs, ${components.length} components, ${lib.length} lib files, ${stores.length} stores`);
+    } else {
+      // Running inside a container where frontend isn't colocated; verify via HTTP instead.
+      const reachable = await new Promise((resolve) => {
+        const req = http.get("http://althr-frontend:3001", (res) => resolve(res.statusCode >= 200 && res.statusCode < 400));
+        req.on("error", () => resolve(false));
+        req.setTimeout(3000, () => { req.destroy(); resolve(false); });
+      });
+      if (reachable) ok("frontend server reachable at http://althr-frontend:3001");
+      else bad("frontend", "source directory not found and frontend server not reachable");
+    }
   } catch (e) { bad("frontend", e.message); }
 
   console.log(`\n=== Day 9 Result: ${pass} passed, ${fail} failed ===\n`);

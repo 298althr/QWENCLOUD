@@ -10,7 +10,7 @@
 const TelegramBot = require("node-telegram-bot-api");
 const { handleAgentMessage } = require("../pipeline/orchestrator");
 const { listPending, approveAction, rejectAction } = require("../pipeline/approvals");
-const { getServerHealth, executeTool } = require("../qwen/toolExecutor");
+const { get_server_health, executeTool } = require("../qwen/toolExecutor");
 const { queryAudit } = require("../utils/audit");
 const { safCheck } = require("../pipeline/saf");
 const memory = require("../memory/store");
@@ -61,7 +61,7 @@ function start(io) {
   bot.onText(/^\/status/, async (msg) => {
     if (!allowedFilter(msg)) return;
     try {
-      const h = await getServerHealth();
+      const h = await get_server_health();
       const cpuEmoji = h.cpu > 85 ? "🔴" : h.cpu > 70 ? "🟡" : "🟢";
       const ramEmoji = h.ram > 90 ? "🔴" : h.ram > 75 ? "🟡" : "🟢";
       bot.sendMessage(
@@ -260,7 +260,7 @@ function start(io) {
     const chatId = msg.chat.id;
     try {
       let serverState = {};
-      try { serverState = await getServerHealth(); } catch { serverState = {}; }
+      try { serverState = await get_server_health(); } catch { serverState = {}; }
       const result = await handleAgentMessage({
         message: msg.text,
         serverState,

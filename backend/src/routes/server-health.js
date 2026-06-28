@@ -3,11 +3,11 @@
 
 const express = require("express");
 const router = express.Router();
-const { getServerHealth } = require("../qwen/toolExecutor");
+const { get_server_health } = require("../qwen/toolExecutor");
 
 router.get("/", async (req, res) => {
   try {
-    const h = await getServerHealth();
+    const h = await get_server_health();
     const fmtUptime = (s) => {
       const d = Math.floor(s / 86400);
       const hr = Math.floor((s % 86400) / 3600);

@@ -51,7 +51,7 @@ try {
 // ---- WebSocket ----
 const { handleAgentMessage } = require("./pipeline/orchestrator");
 const { approveAction, rejectAction } = require("./pipeline/approvals");
-const { getServerHealth } = require("./qwen/toolExecutor");
+const { get_server_health } = require("./qwen/toolExecutor");
 const monitor = require("./monitors/monitor");
 
 io.on("connection", (socket) => {
@@ -64,7 +64,7 @@ io.on("connection", (socket) => {
     if (!message) return;
     try {
       let serverState = {};
-      try { serverState = await getServerHealth(); } catch { serverState = {}; }
+      try { serverState = await get_server_health(); } catch { serverState = {}; }
       await handleAgentMessage({
         message,
         serverState,
