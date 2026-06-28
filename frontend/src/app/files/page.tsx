@@ -9,6 +9,8 @@ export default function FilesPage() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
 
   const list = async (p: string) => {
     setError("");
@@ -26,11 +28,26 @@ export default function FilesPage() {
   const openFile = async (name: string) => {
     const fullPath = path === "." ? name : `${path}/${name}`;
     setSelectedFile(fullPath);
+    setSaveMsg("");
     try {
       const r = await api.readFile(fullPath);
       setFileContent(r.content || "");
     } catch (e: any) {
       setFileContent(`Error: ${e.message}`);
+    }
+  };
+
+  const saveFile = async () => {
+    if (!selectedFile || fileContent === null) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      await api.writeFile(selectedFile, fileContent);
+      setSaveMsg("Saved successfully.");
+    } catch (e: any) {
+      setSaveMsg(`Error: ${e.message}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -65,16 +82,33 @@ export default function FilesPage() {
           </div>
         </section>
 
-        {/* File viewer */}
+        {/* File viewer / editor */}
         <section className="card p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-ink-500">
-            {selectedFile || "File Viewer"}
-          </h2>
-          {fileContent !== null ? (
-            <pre className="max-h-96 overflow-auto rounded-lg bg-ink-950/50 p-3 font-mono text-xs text-ink-300">{fileContent}</pre>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
+              {selectedFile || "File Viewer"}
+            </h2>
+            {selectedFile && (
+              <button
+                onClick={saveFile}
+                disabled={saving}
+                className="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-medium text-ink-950 hover:bg-gold-400 disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            )}
+          </div>
+          {selectedFile ? (
+            <textarea
+              value={fileContent || ""}
+              onChange={(e) => setFileContent(e.target.value)}
+              className="h-96 w-full rounded-lg border border-ink-700 bg-ink-950/50 p-3 font-mono text-xs text-ink-300 focus:border-gold-500 focus:outline-none"
+              spellCheck={false}
+            />
           ) : (
-            <p className="text-sm text-ink-600">Select a file to view its content.</p>
+            <p className="text-sm text-ink-600">Select a file to view or edit its content.</p>
           )}
+          {saveMsg && <p className="mt-2 text-xs text-accent-ok">{saveMsg}</p>}
         </section>
       </div>
     </div>

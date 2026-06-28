@@ -153,21 +153,45 @@ docker exec -i althr-postgres psql -U althr -d althr_autopilot -c "UPDATE audit_
 
 **Expected:** Error — `audit_log is immutable`.
 
-## 7. Frontend Verification
+## 7. Frontend Verification — Monitoring vs Control
 
-Open these URLs in a browser:
+The frontend is **both** a monitoring dashboard and a control surface. Evaluators should test both views.
+
+### Monitoring pages (read-only)
 
 | URL | What to check |
 |---|---|
 | `http://localhost:3001` | Dashboard loads, cards show "Checking…" then populate |
-| `http://localhost:3001/agent` | Send "show server health" and see reasoning stream |
-| `http://localhost:3001/monitoring` | Charts appear, no console errors |
-| `http://localhost:3001/memory` | Memory layers load, semantic search works |
-| `http://localhost:3001/analytics` | DQ trend chart renders |
-| `http://localhost:3001/security` | Audit log table loads |
-| `http://localhost:3001/files` | Directory listing works |
-| `http://localhost:3001/deployments` | Page loads without crash |
-| `http://localhost:3001/settings` | Page loads without crash |
+| `http://localhost:3001/monitoring` | Live CPU/RAM/disk bars, process table, ports, Docker containers |
+| `http://localhost:3001/memory` | Layer entries, semantic search, learned lessons |
+| `http://localhost:3001/analytics` | DQ trend chart and decision metrics |
+| `http://localhost:3001/security` | Audit log table shows immutable history |
+
+### Control pages (actions)
+
+| URL | Control action |
+|---|---|
+| `http://localhost:3001/agent` | **Send natural-language commands** (e.g., "show server health", "kill the top CPU process") |
+| `http://localhost:3001/agent` | **Approve / reject** pending actions from the right-side Approval Card |
+| `http://localhost:3001/deployments` | **Deploy a GitHub repo** by entering URL and clicking Deploy |
+| `http://localhost:3001/security` | **Run security scan** and see results |
+| `http://localhost:3001/files` | **Browse directories**, read files, and edit/save files |
+
+### Evaluator walkthrough (recommended)
+
+1. Open `http://localhost:3001/agent`.
+2. Type `show server health` and click **Send**.
+   - **Expected:** reasoning stream appears, then a formatted health response.
+3. Type `deploy https://github.com/vercel/next.js` (or any public repo) and click **Send**.
+   - **Expected:** agent decides the intent, may ask for approval, then executes the deployment.
+4. If an action card appears in the **Pending Approvals** panel, click **Approve**.
+   - **Expected:** action executes, audit log updates.
+5. Go to `http://localhost:3001/security` and click **Run Scan**.
+   - **Expected:** scan result shows user, open ports, and status.
+6. Go to `http://localhost:3001/files` and click a file.
+   - **Expected:** file content loads in the viewer.
+7. Go to `http://localhost:3001/monitoring` and wait a few seconds.
+   - **Expected:** CPU/RAM/disk bars update via WebSocket.
 
 Open browser DevTools (F12) → Console. **Expected:** no red errors on any page.
 
