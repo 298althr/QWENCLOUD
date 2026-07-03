@@ -1,6 +1,8 @@
 # Systems Synthesis: What These Frameworks Mean for ALTHR Autopilot
 
 > This is not a plan. It is a statement of what I believe after reading the seven system documents in `SYSTEMS-FRAMEWORKS` and comparing them to the current ALTHR Autopilot implementation.
+>
+> For detailed grades, validation methods, domains, and real-life applications of each system, see [`docs/SYSTEMS-INDEX.md`](SYSTEMS-INDEX.md).
 
 ## 1. The seven documents are one architecture
 
@@ -157,4 +159,6 @@ The repo is not behind. It is the foundation. The next logical move is to add th
 ## 9. Synthesis in one sentence
 
 > ALTHR Autopilot should be positioned as an agent that does not merely execute commands, but that researches, weighs, challenges, and learns from every decision — using the execution layer already built as the body, and the decision-intelligence frameworks as the brain.
+
+For per-system grades, validation methods, and domain mappings, see [`docs/SYSTEMS-INDEX.md`](SYSTEMS-INDEX.md).
 

@@ -322,8 +322,9 @@ Before making any code or architectural changes, the resuming agent must read an
 | `decision intelligence system by gpt.md` | `SYSTEMS-FRAMEWORKS/` | Decision mass, density, energy, and risk allocation |
 | `disc2.md` | `SYSTEMS-FRAMEWORKS/` | 10-layer Decision Intelligence Supply Chain |
 | `drev (3).md` | `SYSTEMS-FRAMEWORKS/` | Pairwise decision verification and resilience |
-| `DRE_SPECIFICATION.md` | `SYSTEMS-FRAMEWORKS/` | Iterative research engine for solution recommendation |
+ | `DRE_SPECIFICATION.md` | `SYSTEMS-FRAMEWORKS/` | Iterative research engine for solution recommendation |
 | `docs/SYSTEMS-SYNTHESIS.md` | `TRACK4/docs/` | Synthesis of the seven frameworks applied to ALTHR |
+| `docs/SYSTEMS-INDEX.md` | `TRACK4/docs/` | Per-system grades, validation methods, domains, and real-life uses |
 
 **Required output before proceeding:** The resuming agent must produce a short statement of belief summarizing:
 
