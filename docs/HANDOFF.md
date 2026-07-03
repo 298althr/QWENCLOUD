@@ -310,9 +310,32 @@ Priority order for a resuming agent:
 
 ---
 
-## 9. How to Resume Work
+## 9. External Context Required Before Acting
 
-### 9.1 Quick Start
+Before making any code or architectural changes, the resuming agent must read and synthesize the following external context documents. These frameworks inform the long-term direction of the project.
+
+| Document | Location | Why it matters |
+|---|---|---|
+| `CRDS_SPECIFICATION.md` | `SYSTEMS-FRAMEWORKS/` | Competitive reaction scoring and cascade veto patterns |
+| `decision intelligence by claude.md` | `SYSTEMS-FRAMEWORKS/` | Warning against count-based decision allocation |
+| `decision intelligence supply chain.md` | `SYSTEMS-FRAMEWORKS/` | Treating data as an information portfolio |
+| `decision intelligence system by gpt.md` | `SYSTEMS-FRAMEWORKS/` | Decision mass, density, energy, and risk allocation |
+| `disc2.md` | `SYSTEMS-FRAMEWORKS/` | 10-layer Decision Intelligence Supply Chain |
+| `drev (3).md` | `SYSTEMS-FRAMEWORKS/` | Pairwise decision verification and resilience |
+| `DRE_SPECIFICATION.md` | `SYSTEMS-FRAMEWORKS/` | Iterative research engine for solution recommendation |
+| `docs/SYSTEMS-SYNTHESIS.md` | `TRACK4/docs/` | Synthesis of the seven frameworks applied to ALTHR |
+
+**Required output before proceeding:** The resuming agent must produce a short statement of belief summarizing:
+
+1. What the seven frameworks have in common.
+2. Which framework would most differentiate ALTHR in the hackathon.
+3. Whether the current ALTHR architecture is the right foundation for these frameworks.
+
+This statement should be added to the session notes or shared with the user before any implementation begins.
+
+## 10. How to Resume Work
+
+### 10.1 Quick Start
 
 ```powershell
 # 1. Open the repository
@@ -369,7 +392,7 @@ Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.
 
 ---
 
-## 10. Methodology for Constructing Handoff Reports
+## 11. Methodology for Constructing Handoff Reports
 
 To ensure precise continuation for any future agent, every handoff report should follow this structure:
 
@@ -412,7 +435,7 @@ The outgoing agent must update the handoff date and commit the document before t
 
 ---
 
-## 11. Contact & References
+## 12. Contact & References
 
 - **Support:** https://windsurf.com/support
 - **Devin CLI docs:** invoke `skill devin-for-terminal`
@@ -421,7 +444,7 @@ The outgoing agent must update the handoff date and commit the document before t
 
 ---
 
-## 12. Sign-Off
+## 13. Sign-Off
 
 | Field | Value |
 |---|---|

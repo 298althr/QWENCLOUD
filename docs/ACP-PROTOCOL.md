@@ -52,6 +52,16 @@ Every `HANDOFF.md` must contain the following sections in this order:
 - Fix any failing validation tests before writing the handoff.
 - Remove stray files and commit all pending changes.
 
+### Step 0 (for incoming agents): Read external context
+
+Before any implementation, an incoming agent must:
+
+- Read all documents in `SYSTEMS-FRAMEWORKS/` (CRDS, DISC, DQS, DRE, DREV).
+- Read `docs/SYSTEMS-SYNTHESIS.md` inside the project.
+- Produce a short statement of belief about what the frameworks share, which would most differentiate the project, and whether the current architecture is the right foundation.
+
+This step precedes coding because the frameworks determine the strategic direction.
+
 ### Step 2: Gather objective data
 
 Run these commands and record the results:
