@@ -33,16 +33,4 @@ router.use("/security", require("./security"));
 // Decision intelligence routes
 router.use("/decision", require("./decision"));
 
-// Day 6+ routes (added as built)
-// router.use("/processes", require("./processes"));
-// router.use("/ports", require("./ports"));
-// router.use("/docker", require("./docker"));
-// router.use("/deployments", require("./deployments"));
-// router.use("/file", require("./file"));
-// router.use("/security", require("./security"));
-// router.use("/memory", require("./memory"));
-// router.use("/analytics", require("./analytics"));
-// router.use("/learning", require("./learning"));
-// router.use("/auth", require("./auth"));
-
 module.exports = router;

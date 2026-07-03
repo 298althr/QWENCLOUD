@@ -48,6 +48,27 @@ try {
   if (err.code !== "MODULE_NOT_FOUND") throw err;
 }
 
+// ---- Alibaba Cloud proof endpoint ----
+app.get("/api/alibaba/health", async (req, res) => {
+  try {
+    const alibaba = require("./utils/alibaba");
+    const result = await alibaba.healthCheck();
+    res.json({ status: "ok", services: result });
+  } catch (e) {
+    res.status(500).json({ status: "error", error: e.message });
+  }
+});
+
+app.get("/api/alibaba/instance", async (req, res) => {
+  try {
+    const alibaba = require("./utils/alibaba");
+    const instance = await alibaba.getCurrentInstance();
+    res.json({ instance });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ---- WebSocket ----
 const { handleAgentMessage } = require("./pipeline/orchestrator");
 const { approveAction, rejectAction } = require("./pipeline/approvals");
