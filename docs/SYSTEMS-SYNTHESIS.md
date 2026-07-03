@@ -5,6 +5,8 @@
 > For detailed grades, validation methods, domains, and real-life applications of each system, see [`docs/SYSTEMS-INDEX.md`](SYSTEMS-INDEX.md).
 >
 > For identified gaps, synthesized principles, and the A+ calibration path, see [`docs/SYSTEMS-GAPS-PRINCIPLES.md`](SYSTEMS-GAPS-PRINCIPLES.md).
+>
+> For how this stack maps to the Qwen Cloud Hackathon submission, see [`docs/QWEN-SYSTEM.md`](QWEN-SYSTEM.md).
 
 ## 1. The seven documents are one architecture
 
