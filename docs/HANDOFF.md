@@ -325,6 +325,7 @@ Before making any code or architectural changes, the resuming agent must read an
  | `DRE_SPECIFICATION.md` | `SYSTEMS-FRAMEWORKS/` | Iterative research engine for solution recommendation |
 | `docs/SYSTEMS-SYNTHESIS.md` | `TRACK4/docs/` | Synthesis of the seven frameworks applied to ALTHR |
 | `docs/SYSTEMS-INDEX.md` | `TRACK4/docs/` | Per-system grades, validation methods, domains, and real-life uses |
+| `docs/SYSTEMS-GAPS-PRINCIPLES.md` | `TRACK4/docs/` | Gaps, synthesized principles, measurement scales, A+ path |
 
 **Required output before proceeding:** The resuming agent must produce a short statement of belief summarizing:
 

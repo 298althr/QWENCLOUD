@@ -30,6 +30,9 @@ router.use("/file", require("./file"));
 router.use("/deployments", require("./deploy"));
 router.use("/security", require("./security"));
 
+// Decision intelligence routes
+router.use("/decision", require("./decision"));
+
 // Day 6+ routes (added as built)
 // router.use("/processes", require("./processes"));
 // router.use("/ports", require("./ports"));

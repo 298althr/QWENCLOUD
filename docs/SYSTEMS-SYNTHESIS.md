@@ -3,6 +3,8 @@
 > This is not a plan. It is a statement of what I believe after reading the seven system documents in `SYSTEMS-FRAMEWORKS` and comparing them to the current ALTHR Autopilot implementation.
 >
 > For detailed grades, validation methods, domains, and real-life applications of each system, see [`docs/SYSTEMS-INDEX.md`](SYSTEMS-INDEX.md).
+>
+> For identified gaps, synthesized principles, and the A+ calibration path, see [`docs/SYSTEMS-GAPS-PRINCIPLES.md`](SYSTEMS-GAPS-PRINCIPLES.md).
 
 ## 1. The seven documents are one architecture
 

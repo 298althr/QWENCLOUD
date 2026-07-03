@@ -69,7 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_m4_timestamp ON m4_execution(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_m4_action_type ON m4_execution(action_type);
 CREATE INDEX IF NOT EXISTS idx_m4_result ON m4_execution(result);
 
--- M5: Decision Memory — context, alternatives, confidence for each decision
+-- M5: Decision Memory — context, alternatives, confidence, mass, and outcome for each decision
 CREATE TABLE IF NOT EXISTS m5_decision (
     id               SERIAL PRIMARY KEY,
     action_id        VARCHAR(50) REFERENCES m4_execution(action_id),
@@ -78,12 +78,16 @@ CREATE TABLE IF NOT EXISTS m5_decision (
     alternatives_json JSONB NOT NULL,           -- what other actions were considered
     confidence       DECIMAL(4,3) NOT NULL,     -- 0.000 to 1.000
     dq_score         DECIMAL(5,2),              -- 0 to 100
+    decision_mass_json JSONB,                 -- {size, risk, complexity, confidence_modifier, di}
     chosen_action    TEXT NOT NULL,
     reasoning        TEXT,                      -- Qwen thinking mode output
-    risk_level       VARCHAR(10) NOT NULL       -- 'low', 'medium', 'high'
+    risk_level       VARCHAR(10) NOT NULL,      -- 'low', 'medium', 'high'
+    outcome_result   VARCHAR(20),               -- 'success', 'failure', 'partial', 'unknown'
+    outcome_recorded_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_m5_confidence ON m5_decision(confidence);
 CREATE INDEX IF NOT EXISTS idx_m5_timestamp ON m5_decision(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_m5_outcome ON m5_decision(outcome_result);
 
 -- M6: Learning Memory — errors, drift, improvements (with vector embeddings)
 CREATE TABLE IF NOT EXISTS m6_learning (
@@ -193,6 +197,23 @@ CREATE TABLE IF NOT EXISTS qwen_conversations (
     last_active     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_qwen_conv_user ON qwen_conversations(user_id);
+
+-- ============================================================
+-- DECISION CALIBRATION — predicted vs actual outcomes
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS decision_calibration (
+    id                 SERIAL PRIMARY KEY,
+    action_id          VARCHAR(50) UNIQUE NOT NULL REFERENCES m4_execution(action_id),
+    predicted_confidence DECIMAL(4,3) NOT NULL,  -- 0.000 to 1.000
+    predicted_outcome    VARCHAR(20),             -- 'success', 'failure'
+    actual_outcome       VARCHAR(20),             -- 'success', 'failure', 'partial'
+    brier_score          DECIMAL(4,3),             -- 0 = perfect, 2 = worst
+    calibration_error    DECIMAL(4,3),             -- |predicted - actual|
+    recorded_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_calibration_action ON decision_calibration(action_id);
+CREATE INDEX IF NOT EXISTS idx_calibration_recorded ON decision_calibration(recorded_at DESC);
 
 -- ============================================================
 -- DONE

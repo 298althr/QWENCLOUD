@@ -1,7 +1,8 @@
 # Systems Index: Evaluation, Validation, Domains, and Real-Life Use
 
-> Companion to `docs/SYSTEMS-SYNTHESIS.md`.  
-> This document scores each of the seven frameworks in `SYSTEMS-FRAMEWORKS/`, explains how to validate them, and maps them to real domains and problems.
+> Companion to `docs/SYSTEMS-SYNTHESIS.md` and `docs/SYSTEMS-GAPS-PRINCIPLES.md`.  
+> This document scores each of the seven frameworks in `SYSTEMS-FRAMEWORKS/`, explains how to validate them, and maps them to real domains and problems.  
+> For the gap analysis, synthesized principles, and A+ calibration path, see [`docs/SYSTEMS-GAPS-PRINCIPLES.md`](SYSTEMS-GAPS-PRINCIPLES.md).
 
 ---
 

@@ -9,6 +9,8 @@ const { executeTool } = require("../qwen/toolExecutor");
 const { createPendingAction } = require("./approvals");
 const { audit } = require("../utils/audit");
 const memory = require("../memory/store");
+const { inferMassForAction } = require("../decision/mass");
+const { recordPrediction, recordOutcome } = require("../decision/calibration");
 
 /**
  * @param {object} args
@@ -60,10 +62,17 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
   );
   emit("saf_result", { saf, action: safAction });
 
-  // 5. Authorization routing
+  // 5. Decision mass calculation (DQS layer)
+  const decisionMass = inferMassForAction(primaryStep, pipeline.confidence, pipeline.risk_level, "server_ops");
+  emit("decision_mass", { mass: decisionMass });
+
+  // 6. Authorization routing
   let authorization;
   let results = [];
-  let action_id = null;
+  let action_id = generateActionId();
+
+  // Record prediction for calibration regardless of authorization outcome.
+  await recordPrediction(action_id, pipeline.confidence, "success");
 
   if (!saf.passed) {
     // SAF blocked — do not execute, even if pipeline authorized
@@ -82,6 +91,7 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
       error_type: "saf_block",
       pattern_hash: require("crypto").createHash("md5").update(pipeline.action || message).digest("hex"),
     });
+    await storeDecisionMemory(action_id, message, plan, pipeline, decisionMass, "blocked");
   } else if (pipeline.authorization_type === "auto") {
     authorization = "auto_executed";
     for (const step of plan) {
@@ -98,6 +108,7 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
       safResult: saf,
       result: "success",
     });
+    await storeDecisionMemory(action_id, message, plan, pipeline, decisionMass, "success");
   } else if (pipeline.authorization_type === "human_approval_required") {
     authorization = "human_approval_required";
     const pending = await createPendingAction({
@@ -110,6 +121,7 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
       io,
     });
     action_id = pending.action_id;
+    await storeDecisionMemory(action_id, message, plan, pipeline, decisionMass, "pending");
   } else {
     authorization = "blocked_escalate";
     await audit({
@@ -122,6 +134,7 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
       safResult: saf,
       result: "blocked",
     });
+    await storeDecisionMemory(action_id, message, plan, pipeline, decisionMass, "escalated");
   }
 
   emit("action_update", {
@@ -131,6 +144,7 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
     confidence: pipeline.confidence,
     risk_level: pipeline.risk_level,
     authorization,
+    decision_mass: decisionMass,
     results,
   });
 
@@ -143,6 +157,7 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
     authorization,
     reasoning: pipeline.reasoning,
     saf,
+    decision_mass: decisionMass,
     results,
   };
 }
@@ -177,6 +192,67 @@ function buildPlan(intent, pipeline) {
       plan.push({ name: "get_server_health", args: {} });
   }
   return plan;
+}
+
+function generateActionId() {
+  const ts = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `act_${ts}_${rand}`;
+}
+
+async function storeDecisionMemory(actionId, context, plan, pipeline, decisionMass, outcomeResult) {
+  const pool = require("../db/pool");
+  const primaryStep = plan[0] || {};
+
+  // Ensure m4_execution row exists before m5_decision (FK).
+  await pool.query(
+    `INSERT INTO m4_execution (
+       action_id, action_type, action_detail, result, saf_passed, human_approved
+     ) VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (action_id) DO UPDATE SET
+       action_type = EXCLUDED.action_type,
+       action_detail = EXCLUDED.action_detail,
+       result = EXCLUDED.result,
+       saf_passed = EXCLUDED.saf_passed,
+       human_approved = EXCLUDED.human_approved`,
+    [
+      actionId,
+      primaryStep.name || pipeline.action || "unknown",
+      JSON.stringify(plan),
+      outcomeResult,
+      true,
+      outcomeResult === "pending",
+    ]
+  );
+
+  await pool.query(
+    `INSERT INTO m5_decision (
+       action_id, context, alternatives_json, confidence, dq_score,
+       decision_mass_json, chosen_action, reasoning, risk_level, outcome_result
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (action_id) DO UPDATE SET
+       context = EXCLUDED.context,
+       alternatives_json = EXCLUDED.alternatives_json,
+       confidence = EXCLUDED.confidence,
+       dq_score = EXCLUDED.dq_score,
+       decision_mass_json = EXCLUDED.decision_mass_json,
+       chosen_action = EXCLUDED.chosen_action,
+       reasoning = EXCLUDED.reasoning,
+       risk_level = EXCLUDED.risk_level,
+       outcome_result = EXCLUDED.outcome_result`,
+    [
+      actionId,
+      context,
+      JSON.stringify(plan.map((p) => p.name)),
+      pipeline.confidence,
+      pipeline.dq_score ?? null,
+      JSON.stringify(decisionMass),
+      primaryStep.name || pipeline.action,
+      pipeline.reasoning,
+      pipeline.risk_level,
+      outcomeResult,
+    ]
+  );
 }
 
 module.exports = { handleAgentMessage };
