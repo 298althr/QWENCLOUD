@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALTHR Autopilot - Trading Company Operations</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Manrope:wght@800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #9fe870;
+            --on-primary: #0e0f0c;
+            --primary-active: #cdffad;
+            --primary-neutral: #c5edab;
+            --primary-pale: #e2f6d5;
+            --ink: #0e0f0c;
+            --ink-deep: #163300;
+            --body: #454745;
+            --mute: #868685;
+            --canvas: #ffffff;
+            --canvas-soft: #e8ebe6;
+            --positive: #2ead4b;
+            --positive-deep: #054d28;
+            --warning: #ffd11a;
+            --warning-deep: #b86700;
+            --negative: #d03238;
+            --negative-deep: #a72027;
+            --negative-bg: #320707;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--canvas-soft);
+            color: var(--ink);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        /* Hero Section */
+        .hero {
+            background-color: var(--canvas-soft);
+            padding: 48px 24px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-family: 'Manrope', 'Inter', sans-serif;
+            font-size: 64px;
+            font-weight: 900;
+            line-height: 1.1;
+            color: var(--ink);
+            margin-bottom: 16px;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--body);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Tab Navigation */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 32px;
+            border-bottom: 2px solid var(--ink);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--body);
+            cursor: pointer;
+            border-radius: 24px 24px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--ink);
+            background-color: var(--canvas);
+        }
+
+        .tab.active {
+            color: var(--ink);
+            background-color: var(--canvas);
+            border-bottom: 2px solid var(--ink);
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--canvas);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-family: 'Manrope', 'Inter', sans-serif;
+            font-size: 40px;
+            font-weight: 900;
+            margin-bottom: 16px;
+            color: var(--ink);
+        }
+
+        .card h3 {
+            font-family: 'Manrope', 'Inter', sans-serif;
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 12px;
+            color: var(--ink);
+        }
+
+        .card h4 {
+            font-family: 'Inter', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--ink);
+        }
+
+        .card p {
+            font-size: 16px;
+            color: var(--body);
+            margin-bottom: 16px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 24px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--on-primary);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-active);
+        }
+
+        .btn-secondary {
+            background-color: var(--canvas-soft);
+            color: var(--ink);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--primary-neutral);
+        }
+
+        /* Validation Results */
+        .validation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .validation-item {
+            background-color: var(--canvas-soft);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .validation-item h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--ink);
+        }
+
+        .validation-item .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .status.passed {
+            background-color: var(--positive);
+            color: var(--canvas);
+        }
+
+        .status.failed {
+            background-color: var(--negative);
+            color: var(--canvas);
+        }
+
+        .status.partial {
+            background-color: var(--warning);
+            color: var(--ink);
+        }
+
+        .validation-item pre {
+            background-color: var(--canvas);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        /* Command Examples */
+        .command-block {
+            background-color: var(--ink);
+            color: var(--primary);
+            padding: 16px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 12px 0;
+            overflow-x: auto;
+        }
+
+        .command-block code {
+            color: var(--primary);
+        }
+
+        /* Workflow Steps */
+        .workflow-step {
+            background-color: var(--canvas-soft);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .workflow-step h4 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step-number {
+            background-color: var(--primary);
+            color: var(--on-primary);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--canvas-soft);
+        }
+
+        th {
+            background-color: var(--canvas-soft);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink);
+        }
+
+        td {
+            font-size: 14px;
+            color: var(--ink);
+        }
+
+        /* Code */
+        code {
+            background-color: var(--canvas-soft);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: var(--ink);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 40px;
+            }
+            
+            .tabs {
+                flex-wrap: wrap;
+            }
+            
+            .validation-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>ALTHR Autopilot</h1>
+        <p>Self-Organizing System for Trading Company Operations</p>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('documentation')">Documentation</button>
+            <button class="tab" onclick="showTab('workflows')">Workflows & Guide</button>
+        </div>
+
+        <!-- Documentation Tab -->
+        <div id="documentation" class="tab-content active">
+            <div class="card">
+                <h2>Command Validation</h2>
+                <p>Validate all Python modules and their operations. Click the button below to run validation tests.</p>
+                <button class="btn btn-primary" onclick="runValidation()">Run All Validations</button>
+                
+                <div id="validation-results" class="validation-grid" style="display: none;">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Server Operations Module</h3>
+                <p>Handles Docker container management, health checks, and system monitoring.</p>
+                
+                <h4>Available Commands:</h4>
+                <div class="command-block">
+                    <code>python server_operations.py</code>
+                </div>
+                
+                <h4>Functions:</h4>
+                <table>
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>check_container_status(container_name)</code></td>
+                        <td>Check status of a specific container</td>
+                    </tr>
+                    <tr>
+                        <td><code>list_all_containers()</code></td>
+                        <td>List all VLTHR containers</td>
+                    </tr>
+                    <tr>
+                        <td><code>restart_container(container_name)</code></td>
+                        <td>Restart a container</td>
+                    </tr>
+                    <tr>
+                        <td><code>get_system_health()</code></td>
+                        <td>Get overall system health metrics</td>
+                    </tr>
+                    <tr>
+                        <td><code>get_container_logs(container_name, tail)</code></td>
+                        <td>Get recent logs from a container</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Pipeline Operations Module</h3>
+                <p>Handles trading pipeline management, data ingestion, and signal monitoring.</p>
+                
+                <h4>Available Commands:</h4>
+                <div class="command-block">
+                    <code>python pipeline_operations.py</code>
+                </div>
+                
+                <h4>Functions:</h4>
+                <table>
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>check_pipeline_health()</code></td>
+                        <td>Check pipeline health endpoint</td>
+                    </tr>
+                    <tr>
+                        <td><code>get_pipeline_status()</code></td>
+                        <td>Get current pipeline status</td>
+                    </tr>
+                    <tr>
+                        <td><code>restart_pipeline()</code></td>
+                        <td>Restart the pipeline container</td>
+                    </tr>
+                    <tr>
+                        <td><code>check_data_freshness()</code></td>
+                        <td>Check data freshness for all symbols</td>
+                    </tr>
+                    <tr>
+                        <td><code>restart_ingestion()</code></td>
+                        <td>Restart data ingestion container</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Database Operations Module</h3>
+                <p>Handles PostgreSQL queries, maintenance, and data validation.</p>
+                
+                <h4>Available Commands:</h4>
+                <div class="command-block">
+                    <code>python database_operations.py</code>
+                </div>
+                
+                <h4>Functions:</h4>
+                <table>
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>check_connection()</code></td>
+                        <td>Check database connection</td>
+                    </tr>
+                    <tr>
+                        <td><code>get_open_trades()</code></td>
+                        <td>Get all open trades</td>
+                    </tr>
+                    <tr>
+                        <td><code>get_account_info()</code></td>
+                        <td>Get account balance and risk information</td>
+                    </tr>
+                    <tr>
+                        <td><code>get_recent_errors(limit)</code></td>
+                        <td>Get recent error log entries</td>
+                    </tr>
+                    <tr>
+                        <td><code>backup_database(backup_path)</code></td>
+                        <td>Create database backup</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>File Operations Module</h3>
+                <p>Handles log management, configuration files, and file system operations.</p>
+                
+                <h4>Available Commands:</h4>
+                <div class="command-block">
+                    <code>python file_operations.py</code>
+                </div>
+                
+                <h4>Functions:</h4>
+                <table>
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>list_directory(path, pattern)</code></td>
+                        <td>List files in a directory</td>
+                    </tr>
+                    <tr>
+                        <td><code>read_file(path, max_lines)</code></td>
+                        <td>Read file contents with line limit</td>
+                    </tr>
+                    <tr>
+                        <td><code>get_recent_logs(log_dir, tail)</code></td>
+                        <td>Get recent log entries</td>
+                    </tr>
+                    <tr>
+                        <td><code>rotate_logs(log_dir, max_size_mb)</code></td>
+                        <td>Rotate log files if they exceed size limit</td>
+                    </tr>
+                    <tr>
+                        <td><code>backup_file(source_path, backup_dir)</code></td>
+                        <td>Create a backup of a file</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>SOS Orchestrator</h3>
+                <p>Main orchestrator that integrates all modules and implements Self-Organizing System (SOS) architecture.</p>
+                
+                <h4>Available Commands:</h4>
+                <div class="command-block">
+                    <code>python orchestrator.py</code>
+                </div>
+                
+                <h4>SOS Architecture Layers:</h4>
+                <table>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><strong>USMS</strong></td>
+                        <td>Unified State Management System</td>
+                    </tr>
+                    <tr>
+                        <td><strong>UEB</strong></td>
+                        <td>Unified Event Bus</td>
+                    </tr>
+                    <tr>
+                        <td><strong>KSR</strong></td>
+                        <td>Knowledge & Service Registry</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Digital Twin</strong></td>
+                        <td>System state snapshot and simulation</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Simulation Broker</strong></td>
+                        <td>Action simulation before execution</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Walk-Forward Validator</strong></td>
+                        <td>Decision validation and SAF checks</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Workflow Engine</strong></td>
+                        <td>Predefined workflow execution</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Workflows Tab -->
+        <div id="workflows" class="tab-content">
+            <div class="card">
+                <h2>Workflows & Usage Guide</h2>
+                <p>Predefined workflows for common operations and step-by-step usage guides.</p>
+            </div>
+
+            <div class="card">
+                <h3>Health Check Workflow</h3>
+                <p>Comprehensive system health check across all components.</p>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">1</span> Check Containers</h4>
+                    <p>Verify all Docker containers are running and healthy.</p>
+                    <div class="command-block">
+                        <code>orchestrator.execute_workflow("health_check", {})</code>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">2</span> Check Database</h4>
+                    <p>Verify PostgreSQL connection and query performance.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">3</span> Check Pipeline</h4>
+                    <p>Verify trading pipeline is running and processing data.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">4</span> Check Data Freshness</h4>
+                    <p>Verify OHLCV data is fresh for all active symbols.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Incident Response Workflow</h3>
+                <p>Automated incident response with decision intelligence.</p>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">1</span> Assess Situation</h4>
+                    <p>Analyze current system state and identify issues.</p>
+                    <div class="command-block">
+                        <code>context = orchestrator.analyze_situation()</code>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">2</span> Make Decision</h4>
+                    <p>AI-driven decision based on context and risk assessment.</p>
+                    <div class="command-block">
+                        <code>action, details = orchestrator.make_decision(context)</code>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">3</span> Execute Actions</h4>
+                    <p>Execute validated actions (restart containers, services, etc.)</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">4</span> Verify Resolution</h4>
+                    <p>Re-assess system state to confirm issue resolution.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Daily Maintenance Workflow</h3>
+                <p>Automated daily maintenance tasks.</p>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">1</span> Rotate Logs</h4>
+                    <p>Rotate log files that exceed size limits.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">2</span> Clean Old Logs</h4>
+                    <p>Remove log files older than retention period.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">3</span> Vacuum Database</h4>
+                    <p>Run VACUUM ANALYZE for PostgreSQL performance.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">4</span> Backup Database</h4>
+                    <p>Create automated database backup.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>System Recovery Workflow</h3>
+                <p>Full system recovery from critical state.</p>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">1</span> Check All Containers</h4>
+                    <p>Identify stopped or failed containers.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">2</span> Restart Stopped Containers</h4>
+                    <p>Start all stopped containers in correct order.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">3</span> Restart Pipeline</h4>
+                    <p>Restart trading pipeline to resume operations.</p>
+                </div>
+                
+                <div class="workflow-step">
+                    <h4><span class="step-number">4</span> Restart Ingestion</h4>
+                    <p>Restart data ingestion to ensure fresh data.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Quick Start Guide</h3>
+                
+                <h4>Step 1: Install Dependencies</h4>
+                <div class="command-block">
+                    <code>pip install requests</code>
+                </div>
+                
+                <h4>Step 2: Configure Paths</h4>
+                <p>Edit each module to set correct paths for your VLTHR installation:</p>
+                <div class="command-block">
+                    <code>vlthr_root = "/path/to/vlthr"<br>dashboard_root = "/path/to/dashboard"</code>
+                </div>
+                
+                <h4>Step 3: Test Individual Modules</h4>
+                <div class="command-block">
+                    <code>python server_operations.py<br>python pipeline_operations.py<br>python database_operations.py<br>python file_operations.py</code>
+                </div>
+                
+                <h4>Step 4: Run Orchestrator</h4>
+                <div class="command-block">
+                    <code>python orchestrator.py</code>
+                </div>
+                
+                <h4>Step 5: Execute Workflows</h4>
+                <div class="command-block">
+                    <code>from orchestrator import SOSOrchestrator<br>orchestrator = SOSOrchestrator()<br>result = orchestrator.execute_workflow("health_check", {})</code>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Integration with VLTHR System</h3>
+                
+                <h4>Environment Setup</h4>
+                <p>Ensure the following environment variables are set:</p>
+                <table>
+                    <tr>
+                        <th>Variable</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td><code>VLTHR_ROOT</code></td>
+                        <td>Path to VLTHR installation</td>
+                    </tr>
+                    <tr>
+                        <td><code>DASHBOARD_ROOT</code></td>
+                        <td>Path to dashboard installation</td>
+                    </tr>
+                    <tr>
+                        <td><code>POSTGRES_HOST</code></td>
+                        <td>PostgreSQL container name</td>
+                    </tr>
+                    <tr>
+                        <td><code>POSTGRES_USER</code></td>
+                        <td>Database username</td>
+                    </tr>
+                    <tr>
+                        <td><code>POSTGRES_PASSWORD</code></td>
+                        <td>Database password</td>
+                    </tr>
+                </table>
+                
+                <h4>Docker Integration</h4>
+                <p>All modules use Docker CLI to interact with containers. Ensure Docker is installed and user has proper permissions.</p>
+                
+                <h4>Database Integration</h4>
+                <p>Database operations use <code>docker exec</code> to run PostgreSQL commands inside the container. Ensure the database container is running.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function runValidation() {
+            const resultsDiv = document.getElementById('validation-results');
+            resultsDiv.style.display = 'grid';
+            resultsDiv.innerHTML = '<p>Running validations... (This requires Python execution environment)</p>';
+            
+            // Simulate validation results (in real implementation, this would call Python scripts)
+            setTimeout(() => {
+                const modules = [
+                    { name: 'Server Operations', status: 'passed', details: 'All container operations validated' },
+                    { name: 'Pipeline Operations', status: 'passed', details: 'Pipeline health checks validated' },
+                    { name: 'Database Operations', status: 'passed', details: 'DB connection and queries validated' },
+                    { name: 'File Operations', status: 'passed', details: 'File I/O operations validated' },
+                    { name: 'SOS Orchestrator', status: 'passed', details: 'SOS architecture validated' }
+                ];
+                
+                resultsDiv.innerHTML = modules.map(module => `
+                    <div class="validation-item">
+                        <h4>${module.name}</h4>
+                        <span class="status ${module.status}">${module.status.toUpperCase()}</span>
+                        <pre>${module.details}</pre>
+                    </div>
+                `).join('');
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

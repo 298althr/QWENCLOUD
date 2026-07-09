@@ -188,6 +188,55 @@ const TOOLS = [
       },
     },
   },
+  // ---- Custom Decision Intelligence Skills (v4) ----
+  {
+    type: "function",
+    function: {
+      name: "research_incident",
+      description:
+        "Trigger the Deep Research Engine (DRE) to research a symptom. Generates ≥2 structurally different remediation candidates with source credibility scoring, contradiction detection, and coverage scoring. Use when diagnosing complex server issues.",
+      parameters: {
+        type: "object",
+        properties: {
+          symptom: { type: "string", description: "Natural-language problem description (e.g. 'the API is slow')" },
+          serverState: { type: "object", description: "Current server metrics { cpu, ram, disk }" },
+        },
+        required: ["symptom"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "verify_remediation",
+      description:
+        "Trigger the Pairwise Verification Engine (DREV) to run a tournament bracket on remediation candidates. Uses AHP consistency check, robustness scoring, regime-aware backtesting, and selects a winner + reserve. Use after research_incident to pick the best candidate.",
+      parameters: {
+        type: "object",
+        properties: {
+          candidates: { type: "array", items: { type: "object" }, description: "Array of candidate objects from DRE" },
+          regime: { type: "string", enum: ["normal", "high-load", "incident", "post-deploy"], description: "Current operational regime" },
+        },
+        required: ["candidates"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "score_reaction",
+      description:
+        "Trigger the Resource Contention and Ripple Reaction System (CRDS) to score a candidate action's resource reaction impact. Computes RRS on [-100, +100], checks for cascade veto, and uses adaptive weights. Use before executing any action to assess resource impact.",
+      parameters: {
+        type: "object",
+        properties: {
+          action: { type: "string", description: "The action to score (e.g. 'restart nginx')" },
+          serverState: { type: "object", description: "Current server metrics" },
+        },
+        required: ["action"],
+      },
+    },
+  },
 ];
 
 // Map of tool name -> definition for quick lookup

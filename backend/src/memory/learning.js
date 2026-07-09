@@ -1,4 +1,9 @@
 // backend/src/memory/learning.js
+// SOS Architecture Mapping:
+// - SOS V7 (Execution & Learning): Learning Engine - extracts lessons from outcomes
+// - SOS V7 (Execution & Learning): Organizational Memory Manager - stores organizational intelligence
+// - SOS V10 (Governance): Continuous Learning Framework - improves future decisions
+//
 // Organizational Learning System — feedback loop + playbook auto-generation.
 //
 // Loop: Action → Outcome → Measurement → Error Detection → Model Update → Policy Update → New Action

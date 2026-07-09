@@ -19,6 +19,8 @@ const ALLOWED_COMMAND_PREFIXES = [
   "rkhunter", "lynis",
   // Process control
   "kill", "pkill",
+  // Deployment actions
+  "deploy",
 ];
 
 // Explicitly forbidden patterns — blocked regardless of whitelist match.

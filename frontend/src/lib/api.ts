@@ -53,6 +53,10 @@ export const api = {
     fetchAPI("/deployments", { method: "POST", body: JSON.stringify({ repo_url, port }) }),
   listDeployments: () => fetchAPI("/deployments"),
 
+  // Simulation
+  simulateAnomaly: (type: "cpu" | "ram" | "disk" | "port", value?: number) =>
+    fetchAPI("/simulate/anomaly", { method: "POST", body: JSON.stringify({ type, value }) }),
+
   // Security
   auditLog: (limit = 50) => fetchAPI(`/security/audit?limit=${limit}`),
   securityScan: () => fetchAPI("/security/scan", { method: "POST" }),
@@ -69,4 +73,59 @@ export const api = {
 
   // Learning
   lessons: (limit = 20) => fetchAPI(`/learning/lessons?limit=${limit}`),
+
+  // Decision Intelligence
+  research: (symptom: string, serverState?: any) =>
+    fetchAPI("/decision/research", { method: "POST", body: JSON.stringify({ symptom, serverState }) }),
+  verify: (candidates: any[]) =>
+    fetchAPI("/decision/verify", { method: "POST", body: JSON.stringify({ candidates }) }),
+  scoreReaction: (action: string, serverState: any) =>
+    fetchAPI("/decision/reaction", { method: "POST", body: JSON.stringify({ action, serverState }) }),
+  calibration: () => fetchAPI("/decision/calibration"),
+  discRank: (sources: any[]) =>
+    fetchAPI("/decision/disc", { method: "POST", body: JSON.stringify({ sources }) }),
+  quality: () => fetchAPI("/decision/quality"),
+  mass: () =>
+    fetchAPI("/decision/mass/infer", { method: "POST", body: JSON.stringify({ action: "restart nginx", confidence: 0.85, risk_level: "medium" }) }),
+
+  // Remote SSH host management
+  remoteHosts: () => fetchAPI("/remote/hosts"),
+  createRemoteHost: (hostData: any) =>
+    fetchAPI("/remote/hosts", { method: "POST", body: JSON.stringify(hostData) }),
+  deleteRemoteHost: (id: string) =>
+    fetchAPI(`/remote/hosts/${id}`, { method: "DELETE" }),
+  remoteCommand: (hostId: string, command: string, timeout?: number) =>
+    fetchAPI(`/remote/${hostId}/command`, { method: "POST", body: JSON.stringify({ command, timeout }) }),
+  remoteContainers: (hostId: string) => fetchAPI(`/remote/${hostId}/containers`),
+  remoteContainerLogs: (hostId: string, containerId: string, tail = 100) =>
+    fetchAPI(`/remote/${hostId}/containers/${encodeURIComponent(containerId)}/logs?tail=${tail}`),
+  remoteContainerInspect: (hostId: string, containerId: string) =>
+    fetchAPI(`/remote/${hostId}/containers/${encodeURIComponent(containerId)}/inspect`),
+  remoteContainerStart: (hostId: string, containerId: string) =>
+    fetchAPI(`/remote/${hostId}/containers/${encodeURIComponent(containerId)}/start`, { method: "POST" }),
+  remoteContainerStop: (hostId: string, containerId: string) =>
+    fetchAPI(`/remote/${hostId}/containers/${encodeURIComponent(containerId)}/stop`, { method: "POST" }),
+  remoteContainerRestart: (hostId: string, containerId: string) =>
+    fetchAPI(`/remote/${hostId}/containers/${encodeURIComponent(containerId)}/restart`, { method: "POST" }),
+  remoteProcesses: (hostId: string) => fetchAPI(`/remote/${hostId}/processes`),
+  remotePorts: (hostId: string) => fetchAPI(`/remote/${hostId}/ports`),
+  remoteListFiles: (hostId: string, path = ".") =>
+    fetchAPI(`/remote/${hostId}/files/list?path=${encodeURIComponent(path)}`),
+  remoteReadFile: (hostId: string, path: string) =>
+    fetchAPI(`/remote/${hostId}/files/read?path=${encodeURIComponent(path)}`),
+  remoteWriteFile: (hostId: string, path: string, content: string) =>
+    fetchAPI(`/remote/${hostId}/files/write`, { method: "POST", body: JSON.stringify({ path, content }) }),
+
+  // Settings
+  getSettings: () => fetchAPI("/settings"),
+  saveSettings: (settings: any) =>
+    fetchAPI("/settings", { method: "POST", body: JSON.stringify(settings) }),
+
+  // AI Usage & Guardrails
+  getUsage: (window = "day") => fetchAPI(`/settings/usage?window=${window}`),
+  getUsageCalls: (limit = 50) => fetchAPI(`/settings/usage/calls?limit=${limit}`),
+  saveBudgets: (daily: number, monthly: number) =>
+    fetchAPI("/settings/budgets", { method: "POST", body: JSON.stringify({ daily, monthly }) }),
+  resetGuardrails: () =>
+    fetchAPI("/settings/guardrails/reset", { method: "POST" }),
 };

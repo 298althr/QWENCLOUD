@@ -2,15 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { PageHeader, SectionCard } from "@/components/design-system";
+import { FolderOpen, FileText, Home, Save } from "lucide-react";
+import { toast } from "sonner";
 
 export default function FilesPage() {
-  const [path, setPath] = useState(".");
+  const [path, setPath] = useState("/var/althr-volumes/files");
   const [entries, setEntries] = useState<any[]>([]);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
 
   const list = async (p: string) => {
     setError("");
@@ -23,12 +27,11 @@ export default function FilesPage() {
     }
   };
 
-  useEffect(() => { list("."); }, []);
+  useEffect(() => { list("/var/althr-volumes/files"); }, []);
 
   const openFile = async (name: string) => {
-    const fullPath = path === "." ? name : `${path}/${name}`;
+    const fullPath = `${path}/${name}`;
     setSelectedFile(fullPath);
-    setSaveMsg("");
     try {
       const r = await api.readFile(fullPath);
       setFileContent(r.content || "");
@@ -37,79 +40,85 @@ export default function FilesPage() {
     }
   };
 
+  const navigateToDir = (name: string) => {
+    list(`${path}/${name}`);
+  };
+
+  const navigateUp = () => {
+    if (path === "/var/althr-volumes/files") return;
+    const parentPath = path.split("/").filter(Boolean).slice(0, -1).join("/") || "var/althr-volumes/files";
+    list("/" + parentPath);
+  };
+
   const saveFile = async () => {
     if (!selectedFile || fileContent === null) return;
     setSaving(true);
-    setSaveMsg("");
     try {
       await api.writeFile(selectedFile, fileContent);
-      setSaveMsg("Saved successfully.");
+      toast.success(`Saved ${selectedFile}`);
     } catch (e: any) {
-      setSaveMsg(`Error: ${e.message}`);
+      toast.error(`Save failed: ${e.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-gold-400">File Manager</h1>
-        <p className="text-sm text-ink-500">Browse and edit files on the server.</p>
-      </header>
+    <div className="space-y-xl">
+      <PageHeader
+        title="Files"
+        description="Browse and edit files on the server"
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Directory browser */}
-        <section className="card p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">Browser</h2>
-            <span className="font-mono text-xs text-gold-400">{path}</span>
-            <button onClick={() => list(".")} className="ml-auto text-xs text-gold-400 hover:text-gold-300">Home</button>
-          </div>
-          {error && <p className="text-sm text-accent-crit">{error}</p>}
-          <div className="space-y-1 text-sm">
+        <SectionCard
+          title="Browser"
+          description={path}
+          delay={0.1}
+          headerActions={
+            <div className="flex gap-1">
+              <Button variant="ghost" size="sm" onClick={navigateUp} disabled={path === "/var/althr-volumes/files"} title="Go up">
+                <FolderOpen className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => list("/var/althr-volumes/files")} title="Go to root">
+                <Home className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          }
+        >
+          {error && <p className="text-sm text-status-crit mb-2">{error}</p>}
+          <div className="space-y-1">
             {entries.map((e, i) => (
               <button
                 key={i}
-                onClick={() => e.type === "dir" ? list(e.path || e.name) : openFile(e.name)}
-                className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-ink-800"
+                onClick={() => e.type === "dir" ? navigateToDir(e.name) : openFile(e.name)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-ink-800 transition-colors"
               >
-                <span>{e.type === "dir" ? "📁" : "📄"}</span>
+                {e.type === "dir" ? <FolderOpen className="h-4 w-4 text-gold-500" /> : <FileText className="h-4 w-4 text-ink-500" />}
                 <span className="text-ink-200">{e.name}</span>
               </button>
             ))}
-            {entries.length === 0 && <p className="text-ink-600">Empty directory</p>}
+            {entries.length === 0 && <p className="text-sm text-ink-600">Empty directory</p>}
           </div>
-        </section>
+        </SectionCard>
 
-        {/* File viewer / editor */}
-        <section className="card p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-500">
-              {selectedFile || "File Viewer"}
-            </h2>
-            {selectedFile && (
-              <button
-                onClick={saveFile}
-                disabled={saving}
-                className="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-medium text-ink-950 hover:bg-gold-400 disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Save Changes"}
-              </button>
-            )}
-          </div>
+        <SectionCard
+          title={selectedFile || "File Viewer"}
+          delay={0.15}
+          headerActions={
+            selectedFile && (
+              <Button variant="outline" size="sm" onClick={saveFile} disabled={saving}>
+                <Save className="h-3.5 w-3.5" /> {saving ? "Saving…" : "Save"}
+              </Button>
+            )
+          }
+        >
           {selectedFile ? (
-            <textarea
-              value={fileContent || ""}
-              onChange={(e) => setFileContent(e.target.value)}
-              className="h-96 w-full rounded-lg border border-ink-700 bg-ink-950/50 p-3 font-mono text-xs text-ink-300 focus:border-gold-500 focus:outline-none"
-              spellCheck={false}
-            />
+            <Textarea value={fileContent || ""} onChange={(e) => setFileContent(e.target.value)} className="h-96 font-mono text-xs" spellCheck={false} />
           ) : (
             <p className="text-sm text-ink-600">Select a file to view or edit its content.</p>
           )}
-          {saveMsg && <p className="mt-2 text-xs text-accent-ok">{saveMsg}</p>}
-        </section>
+        </SectionCard>
       </div>
     </div>
   );

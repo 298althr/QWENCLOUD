@@ -1,0 +1,325 @@
+{
+  "version": "1.0",
+  "description": "AI Command Matrix for ALTHR Autopilot - High-impact DevOps commands",
+  "commands": [
+    {
+      "id": "restart_container",
+      "name": "Restart Container",
+      "category": "container",
+      "description": "Restart a Docker container that is stuck or unhealthy",
+      "parameters": [
+        {
+          "name": "container_name",
+          "type": "string",
+          "required": true,
+          "description": "Name of the container to restart (e.g., vlthr-pipeline, vlthr-data-ingestion)"
+        }
+      ],
+      "risk_level": "low",
+      "requires_approval": false,
+      "examples": [
+        "Restart the pipeline container",
+        "The trading pipeline is stuck, restart it",
+        "vlthr-pipeline is not responding"
+      ]
+    },
+    {
+      "id": "check_container_status",
+      "name": "Check Container Status",
+      "category": "container",
+      "description": "Check the status of a specific Docker container",
+      "parameters": [
+        {
+          "name": "container_name",
+          "type": "string",
+          "required": true,
+          "description": "Name of the container to check"
+        }
+      ],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Check status of vlthr-postgres",
+        "Is the database container running?",
+        "Show me the pipeline container status"
+      ]
+    },
+    {
+      "id": "list_all_containers",
+      "name": "List All Containers",
+      "category": "container",
+      "description": "List all VLTHR Docker containers and their status",
+      "parameters": [],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Show all containers",
+        "List running containers",
+        "What containers are running?",
+        "What docker containers are up?",
+        "Show me the containers",
+        "List all VLTHR containers"
+      ]
+    },
+    {
+      "id": "get_container_logs",
+      "name": "Get Container Logs",
+      "category": "container",
+      "description": "Retrieve recent logs from a container",
+      "parameters": [
+        {
+          "name": "container_name",
+          "type": "string",
+          "required": true,
+          "description": "Name of the container"
+        },
+        {
+          "name": "tail",
+          "type": "integer",
+          "required": false,
+          "default": 50,
+          "description": "Number of log lines to retrieve (default: 50)"
+        }
+      ],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Show logs from pipeline",
+        "Get recent database logs",
+        "What are the last 100 lines from vlthr-pipeline?"
+      ]
+    },
+    {
+      "id": "restart_pipeline",
+      "name": "Restart Trading Pipeline",
+      "category": "pipeline",
+      "description": "Restart the trading pipeline container",
+      "parameters": [],
+      "risk_level": "medium",
+      "requires_approval": true,
+      "examples": [
+        "Restart the trading pipeline",
+        "The pipeline needs to be restarted",
+        "Pipeline is not processing data"
+      ]
+    },
+    {
+      "id": "check_pipeline_health",
+      "name": "Check Pipeline Health",
+      "category": "pipeline",
+      "description": "Check the health status of the trading pipeline",
+      "parameters": [],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Is the pipeline healthy?",
+        "Check pipeline status",
+        "How is the trading pipeline doing?",
+        "What's the pipeline status?",
+        "Is trading pipeline up?",
+        "Pipeline health check"
+      ]
+    },
+    {
+      "id": "pause_pipeline",
+      "name": "Pause Pipeline",
+      "category": "pipeline",
+      "description": "Pause the trading pipeline by setting circuit breaker",
+      "parameters": [],
+      "risk_level": "medium",
+      "requires_approval": true,
+      "examples": [
+        "Pause the pipeline",
+        "Stop trading for now",
+        "Set circuit breaker to pause"
+      ]
+    },
+    {
+      "id": "resume_pipeline",
+      "name": "Resume Pipeline",
+      "category": "pipeline",
+      "description": "Resume the trading pipeline by clearing circuit breaker",
+      "parameters": [],
+      "risk_level": "medium",
+      "requires_approval": true,
+      "examples": [
+        "Resume the pipeline",
+        "Start trading again",
+        "Clear circuit breaker"
+      ]
+    },
+    {
+      "id": "check_data_freshness",
+      "name": "Check Data Freshness",
+      "category": "pipeline",
+      "description": "Check if OHLCV data is fresh for all trading symbols",
+      "parameters": [],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Is the data fresh?",
+        "Check data freshness",
+        "Are we getting fresh market data?",
+        "Is OHLCV data up to date?",
+        "How fresh is the market data?",
+        "Check if market data is current"
+      ]
+    },
+    {
+      "id": "restart_ingestion",
+      "name": "Restart Data Ingestion",
+      "category": "pipeline",
+      "description": "Restart the data ingestion container",
+      "parameters": [],
+      "risk_level": "medium",
+      "requires_approval": true,
+      "examples": [
+        "Restart data ingestion",
+        "The ingestion service is stuck",
+        "Data is not coming in, restart ingestion"
+      ]
+    },
+    {
+      "id": "get_open_trades",
+      "name": "Get Open Trades",
+      "category": "database",
+      "description": "Retrieve all currently open paper trades",
+      "parameters": [],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Show open trades",
+        "What positions do we have?",
+        "List current trades",
+        "Are there any open trades?",
+        "What trades are currently open?",
+        "Show my active trades"
+      ]
+    },
+    {
+      "id": "get_account_info",
+      "name": "Get Account Info",
+      "category": "database",
+      "description": "Get account balance, equity, and risk metrics",
+      "parameters": [],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Show account balance",
+        "What's our equity?",
+        "Get account information",
+        "How much money is in the account?",
+        "Show account details",
+        "What's the current balance?"
+      ]
+    },
+    {
+      "id": "get_recent_errors",
+      "name": "Get Recent Errors",
+      "category": "database",
+      "description": "Retrieve recent error log entries from database",
+      "parameters": [
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false,
+          "default": 10,
+          "description": "Number of error entries to retrieve (default: 10)"
+        }
+      ],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Show recent errors",
+        "What errors occurred recently?",
+        "Get last 20 errors",
+        "Any errors lately?",
+        "Are there any recent issues?",
+        "Show me the latest errors",
+        "What went wrong recently?"
+      ]
+    },
+    {
+      "id": "close_trade",
+      "name": "Close Trade",
+      "category": "database",
+      "description": "Manually close an open trade",
+      "parameters": [
+        {
+          "name": "trade_id",
+          "type": "integer",
+          "required": true,
+          "description": "ID of the trade to close"
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "required": false,
+          "default": "MANUAL",
+          "description": "Reason for closing the trade"
+        }
+      ],
+      "risk_level": "high",
+      "requires_approval": true,
+      "examples": [
+        "Close trade 123",
+        "Exit position 456 manually",
+        "Close the losing trade"
+      ]
+    },
+    {
+      "id": "get_system_health",
+      "name": "Get System Health",
+      "category": "system",
+      "description": "Get overall system health metrics (CPU, memory, disk, containers)",
+      "parameters": [],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Show system health",
+        "How is the server doing?",
+        "Check CPU and memory usage",
+        "How is the system doing?",
+        "System status check",
+        "Show overall system health"
+      ]
+    },
+    {
+      "id": "get_recent_logs",
+      "name": "Get Recent Logs",
+      "category": "system",
+      "description": "Retrieve recent log entries from log files",
+      "parameters": [
+        {
+          "name": "tail",
+          "type": "integer",
+          "required": false,
+          "default": 50,
+          "description": "Number of log lines to retrieve (default: 50)"
+        }
+      ],
+      "risk_level": "none",
+      "requires_approval": false,
+      "examples": [
+        "Show recent logs",
+        "Get last 100 log lines",
+        "What's in the logs?",
+        "Show me the latest logs",
+        "Recent log entries",
+        "Pull recent logs"
+      ]
+    }
+  ],
+  "risk_levels": {
+    "none": "No risk, read-only operation",
+    "low": "Low risk, minimal impact",
+    "medium": "Medium risk, may affect operations",
+    "high": "High risk, requires human approval"
+  },
+  "categories": {
+    "container": "Docker container operations",
+    "pipeline": "Trading pipeline and data ingestion",
+    "database": "Database queries and trade operations",
+    "system": "System health and log operations"
+  }
+}

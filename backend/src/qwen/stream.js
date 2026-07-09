@@ -7,6 +7,7 @@
 
 const { qwen, MODELS } = require("./client");
 const { TOOLS } = require("./skills");
+const { guardedStream, getThinkingBudget } = require("./guardrails");
 
 /**
  * Stream a chat completion with optional tool definitions.
@@ -29,8 +30,10 @@ async function streamChat({
   parallelToolCalls = true,
   toolChoice = "auto",
   onChunk,
+  module: moduleName,
+  taskType,
 }) {
-  const stream = await qwen.chat.completions.create({
+  const stream = await guardedStream(qwen, {
     model,
     messages,
     tools: TOOLS,
@@ -39,8 +42,7 @@ async function streamChat({
     enable_thinking: enableThinking,
     thinking_budget: thinkingBudget,
     preserve_thinking: true,
-    stream: true,
-  });
+  }, { module: moduleName || "stream", taskType: taskType || "default" });
 
   let content = "";
   let reasoning = "";

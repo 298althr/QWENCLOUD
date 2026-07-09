@@ -218,3 +218,123 @@ CREATE INDEX IF NOT EXISTS idx_calibration_recorded ON decision_calibration(reco
 -- ============================================================
 -- DONE
 -- ============================================================
+
+-- ============================================================
+-- V4 DECISION INTELLIGENCE TABLES
+-- ============================================================
+
+-- DREV Tournament logs — records of pairwise verification runs
+CREATE TABLE IF NOT EXISTS drev_tournaments (
+    id              SERIAL PRIMARY KEY,
+    action_id       VARCHAR(50) REFERENCES m4_execution(action_id),
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    candidate_count INTEGER NOT NULL,
+    winner_approach VARCHAR(200),
+    reserve_approach VARCHAR(200),
+    cr              DECIMAL(4,3),               -- AHP consistency ratio
+    robustness      DECIMAL(4,3),               -- 1 - flip_rate
+    regime          VARCHAR(20),                -- 'normal', 'high-load', 'incident', 'post-deploy'
+    degraded        BOOLEAN DEFAULT FALSE,
+    cost_comparisons INTEGER,
+    cost_api_calls  INTEGER,
+    cost_time_ms    INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_drev_timestamp ON drev_tournaments(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_drev_regime ON drev_tournaments(regime);
+
+-- CRDS Adaptive Weights — EWMA-updated weights per dimension
+CREATE TABLE IF NOT EXISTS crds_weights (
+    id              SERIAL PRIMARY KEY,
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    dimension       VARCHAR(50) NOT NULL,       -- 'cpu_disturbance', 'memory_disturbance', etc.
+    weight          DECIMAL(6,3) NOT NULL,      -- current EWMA weight
+    previous_weight DECIMAL(6,3),               -- prior weight for audit
+    action          TEXT,                        -- action that triggered update
+    error_magnitude DECIMAL(6,3)                -- |predicted - actual|
+);
+CREATE INDEX IF NOT EXISTS idx_crds_weights_dim ON crds_weights(dimension);
+CREATE INDEX IF NOT EXISTS idx_crds_weights_ts ON crds_weights(timestamp DESC);
+
+-- CRDS Calibration — predicted RRS vs actual health delta
+CREATE TABLE IF NOT EXISTS crds_calibration (
+    id              SERIAL PRIMARY KEY,
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    action          TEXT NOT NULL,
+    predicted_rrs   INTEGER NOT NULL,           -- -100 to +100
+    actual_delta    DECIMAL(4,3),               -- -1.0 to +1.0
+    brier_score     DECIMAL(4,3),               -- (pred_prob - actual_prob)^2
+    vetoed          BOOLEAN DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_crds_cal_ts ON crds_calibration(timestamp DESC);
+
+-- DRE Research Logs — records of research sessions
+CREATE TABLE IF NOT EXISTS dre_research_logs (
+    id              SERIAL PRIMARY KEY,
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    symptom         TEXT NOT NULL,
+    candidate_count INTEGER NOT NULL,
+    coverage        DECIMAL(4,3),               -- answered/total subquestions
+    contradiction_score DECIMAL(4,3),           -- conflicting/total sources
+    budget_used     INTEGER,
+    budget_max      INTEGER,
+    degraded        BOOLEAN DEFAULT FALSE,
+    sources_count   INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_dre_ts ON dre_research_logs(timestamp DESC);
+
+-- Critique Feedback — 5-dimension grades per decision
+CREATE TABLE IF NOT EXISTS critique_feedback (
+    id              SERIAL PRIMARY KEY,
+    action_id       VARCHAR(50) REFERENCES m4_execution(action_id),
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    accuracy        INTEGER CHECK (accuracy BETWEEN 1 AND 5),
+    timeliness      INTEGER CHECK (timeliness BETWEEN 1 AND 5),
+    actionability   INTEGER CHECK (actionability BETWEEN 1 AND 5),
+    completeness    INTEGER CHECK (completeness BETWEEN 1 AND 5),
+    novelty         INTEGER CHECK (novelty BETWEEN 1 AND 5),
+    feedback_grade  DECIMAL(3,2),               -- average of 5 dimensions
+    feedback_delta  DECIMAL(4,3),               -- normalized -1 to +1
+    dq_score        DECIMAL(5,3),               -- 0 to 1
+    inflated        BOOLEAN DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_critique_ts ON critique_feedback(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_critique_action ON critique_feedback(action_id);
+
+-- MCP Tool Invocations — audit trail for MCP tool calls
+CREATE TABLE IF NOT EXISTS mcp_tool_invocations (
+    id              SERIAL PRIMARY KEY,
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tool_name       VARCHAR(100) NOT NULL,
+    caller          VARCHAR(100),               -- 'qwen', 'dashboard', 'external'
+    success         BOOLEAN NOT NULL,
+    latency_ms      INTEGER,
+    error_message   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_mcp_ts ON mcp_tool_invocations(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_mcp_tool ON mcp_tool_invocations(tool_name);
+
+-- ============================================================
+-- UNIQUE CONSTRAINTS FOR UPSERT SUPPORT
+-- ============================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_m5_action_id'
+  ) THEN
+    ALTER TABLE m5_decision ADD CONSTRAINT unique_m5_action_id UNIQUE (action_id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_m6_pattern_hash'
+  ) THEN
+    ALTER TABLE m6_learning ADD CONSTRAINT unique_m6_pattern_hash UNIQUE (pattern_hash);
+  END IF;
+END $$;
+
+-- ============================================================
+-- V4 SCHEMA DONE
+-- ============================================================

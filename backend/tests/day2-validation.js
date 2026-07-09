@@ -131,6 +131,7 @@ async function main() {
     const hasReasoning = (result.reasoning && result.reasoning.length > 0) || reasoningChunks > 0;
     if (hasContent && hasReasoning) ok(`streamed content(${contentChunks} chunks) + reasoning(${reasoningChunks} chunks)`);
     else if (hasContent) ok(`streamed content(${contentChunks} chunks); reasoning empty (model may not emit)`);
+    else if (hasReasoning) ok(`streamed reasoning(${reasoningChunks} chunks); content empty (model may not emit)`);
     else bad("streaming", `content=${result.content.length} reasoning=${result.reasoning?.length || 0}`);
   } catch (e) { bad("streaming", e.message); }
 

@@ -1,4 +1,9 @@
 // backend/src/qwen/toolExecutor.js
+// SOS Architecture Mapping:
+// - SOS V6 (Solution Architecture): Solution Compiler - converts decisions to executable tool calls
+// - SOS V7 (Execution): Execution Manager - executes tool calls on real systems
+// - SOS V8 (Platform Integration): Tool Management Framework - manages external tool integrations
+//
 // Dispatches Qwen function-calling tool invocations to real implementations.
 // Each handler returns a JSON-serializable result string (per OpenAI tool-call convention).
 
@@ -56,7 +61,7 @@ async function list_directory({ path: p }) {
     return {
       ok: true,
       path: p,
-      entries: entries.map((e) => ({ name: e.name, type: e.isDirectory() ? "directory" : "file" })),
+      entries: entries.map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" })),
     };
   } catch (e) {
     return { ok: false, path: p, error: e.message };
@@ -95,14 +100,24 @@ async function check_ports() {
   }
 }
 
-async function docker_build({ dockerfile, tag, timeout = 120000 }) {
-  // Build via a temp Dockerfile + `docker build`. SAF must have cleared this.
-  const tmpDir = path.join(require("os").tmpdir(), "althr-build-" + Date.now());
-  fs.mkdirSync(tmpDir, { recursive: true });
-  const dockerfilePath = path.join(tmpDir, "Dockerfile");
-  fs.writeFileSync(dockerfilePath, dockerfile, "utf8");
-  const res = await runShell(`docker build -t ${tag} -f "${dockerfilePath}" .`, timeout);
-  return { tag, ...res };
+async function docker_build({ path: buildPath, dockerfile, tag, timeout = 120000 }) {
+  const cwd = buildPath || ".";
+  let dockerfilePath = path.join(cwd, "Dockerfile");
+  if (dockerfile) {
+    // Write provided Dockerfile content into the build context
+    fs.writeFileSync(dockerfilePath, dockerfile, "utf8");
+  }
+  const res = await runShell(`docker build -t ${tag} -f "${dockerfilePath}" "${cwd}"`, timeout);
+  return { tag, cwd, ...res };
+}
+
+async function docker_run({ image, ports, env_vars = [], name, timeout = 60000 }) {
+  const envFlags = env_vars.map((e) => `-e "${e}"`).join(" ");
+  const portFlags = ports || "";
+  const nameFlag = name ? `--name "${name}"` : "";
+  const cmd = `docker run -d ${nameFlag} ${portFlags ? `-p "${portFlags}"` : ""} ${envFlags} ${image}`.replace(/\s+/g, " ");
+  const res = await runShell(cmd, timeout);
+  return { image, ports, name, ...res };
 }
 
 async function list_containers() {
@@ -168,6 +183,23 @@ async function store_memory({ layer, content, metadata = {} }) {
   return memory.store(layer, content, metadata);
 }
 
+// ---- Custom Decision Intelligence Skills (v4) ----
+
+async function research_incident({ symptom, serverState = {} }) {
+  const dre = require("../decision/dre");
+  return dre.research(symptom, serverState);
+}
+
+async function verify_remediation({ candidates, regime, serverState = {} }) {
+  const drev = require("../decision/drev");
+  return drev.verify(candidates, { regime, serverState });
+}
+
+async function score_reaction({ action, serverState = {} }) {
+  const crds = require("../decision/crds");
+  return crds.scoreReaction(action, serverState);
+}
+
 // ---- dispatcher ----
 
 const HANDLERS = {
@@ -178,6 +210,7 @@ const HANDLERS = {
   list_processes,
   check_ports,
   docker_build,
+  docker_run,
   list_containers,
   git_clone,
   run_security_scan,
@@ -185,6 +218,9 @@ const HANDLERS = {
   saf_check,
   query_memory,
   store_memory,
+  research_incident,
+  verify_remediation,
+  score_reaction,
 };
 
 async function executeTool(name, args) {

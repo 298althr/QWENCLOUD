@@ -4,8 +4,10 @@
 // Stage 6:    Confidence scoring via structured output.
 // Stage 7:    Execution authorization (auto / human approval / block+escalate).
 
-const { qwen, MODELS } = require("../qwen/client");
+const { qwen, MODELS, selectModel } = require("../qwen/client");
 const { scoreConfidence } = require("../qwen/confidence");
+const { guardedStream, guardedCreate, getThinkingBudget, getMaxOutputTokens } = require("../qwen/guardrails");
+const { CERTAINTY_PIPELINE_PROMPT } = require("../qwen/prompts");
 
 const STAGES = [
   "problem_definition",
@@ -19,15 +21,7 @@ const STAGES = [
 
 const AUTO_EXECUTE_THRESHOLD = Number(process.env.AUTO_EXECUTE_THRESHOLD || 0.85);
 
-const THINKING_SYSTEM_PROMPT = `You are the Certainty-Driven Decision Pipeline for ALTHR Autopilot.
-Analyze the user request through these stages:
-1. Problem Definition: What is being asked?
-2. Context Identification: What server state is relevant?
-3. Constraint Mapping: What limits apply (SAF whitelist, timeouts, permissions)?
-4. Intent Clarification: What does the user actually want?
-5. Expert Validation: Does the proposed action make sense?
-
-Return your reasoning for each stage, then a concise proposed action.`;
+const THINKING_SYSTEM_PROMPT = CERTAINTY_PIPELINE_PROMPT;
 
 /**
  * Run the 7-stage certainty pipeline.
@@ -38,7 +32,7 @@ Return your reasoning for each stage, then a concise proposed action.`;
  * @param {(evt:object)=>void} [args.onChunk]  streaming callback (reasoning/content)
  * @returns {Promise<object>} { stages, confidence, risk_level, action, reasoning, authorized, authorization_type }
  */
-async function runCertaintyPipeline({ userMessage, serverState, onChunk }) {
+async function runCertaintyPipeline({ userMessage, serverState, context = "", onChunk }) {
   const pipelineResult = {
     stages: {},
     confidence: 0,
@@ -50,19 +44,23 @@ async function runCertaintyPipeline({ userMessage, serverState, onChunk }) {
   };
 
   // Stages 1-5: thinking mode reasoning (streamed if onChunk provided)
+  // Use token-aware rotation so diagnosis works even when the primary
+  // thinking model's quota is exhausted (falls back to a free-tier model).
+  const diagnosisModel = selectModel("diagnosis");
+  const contextBlock = context ? `\n\n=== PERSISTENT CONTEXT ===\n${context}\n=== END CONTEXT ===` : "";
+  const systemPrompt = THINKING_SYSTEM_PROMPT + `\n\nCurrent server state: ${JSON.stringify(serverState)}` + contextBlock;
   let thinkingResponse;
   if (onChunk) {
-    const stream = await qwen.chat.completions.create({
-      model: MODELS.MAX,
+    const stream = await guardedStream(qwen, {
+      model: diagnosisModel,
       messages: [
-        { role: "system", content: THINKING_SYSTEM_PROMPT + `\n\nCurrent server state: ${JSON.stringify(serverState)}` },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
       enable_thinking: true,
-      thinking_budget: 1500,
+      thinking_budget: getThinkingBudget("diagnosis"),
       preserve_thinking: true,
-      stream: true,
-    });
+    }, { module: "certainty", taskType: "diagnosis" });
     let content = "";
     let reasoning = "";
     for await (const chunk of stream) {
@@ -73,16 +71,16 @@ async function runCertaintyPipeline({ userMessage, serverState, onChunk }) {
     }
     thinkingResponse = { reasoning, content };
   } else {
-    const res = await qwen.chat.completions.create({
-      model: MODELS.MAX,
+    const res = await guardedCreate(qwen, {
+      model: diagnosisModel,
       messages: [
-        { role: "system", content: THINKING_SYSTEM_PROMPT + `\n\nCurrent server state: ${JSON.stringify(serverState)}` },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
       enable_thinking: true,
-      thinking_budget: 1500,
+      thinking_budget: getThinkingBudget("diagnosis"),
       preserve_thinking: true,
-    });
+    }, { module: "certainty", taskType: "diagnosis" });
     thinkingResponse = {
       reasoning: res.choices[0].message.reasoning_content,
       content: res.choices[0].message.content,
@@ -95,13 +93,13 @@ async function runCertaintyPipeline({ userMessage, serverState, onChunk }) {
 
   // Stage 6: confidence scoring via structured output
   const plan = await scoreConfidence(thinkingResponse.content || userMessage);
-  pipelineResult.confidence = Number(plan.confidence);
-  pipelineResult.risk_level = plan.risk_level;
-  pipelineResult.action = plan.action;
+  pipelineResult.confidence = Number(plan.confidence) || 0.5;
+  pipelineResult.risk_level = plan.risk_level || "medium";
+  pipelineResult.action = plan.action || "no_action";
   pipelineResult.stages.confidence = plan;
 
   // Stage 7: execution authorization
-  const lowRisk = plan.risk_level === "low";
+  const lowRisk = pipelineResult.risk_level === "low";
   if (pipelineResult.confidence >= AUTO_EXECUTE_THRESHOLD && lowRisk) {
     pipelineResult.authorized = true;
     pipelineResult.authorization_type = "auto";

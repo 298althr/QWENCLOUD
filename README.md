@@ -1,9 +1,39 @@
-# ALTHR Autopilot — Track 4: Autopilot Agent
+# ALTHR Autopilot — AI-Native Server Operations Agent
 
-**Hackathon:** Global AI Hackathon Series with Qwen Cloud
-**Track:** Track 4 — Autopilot Agent
-**Project:** ALTHR Autopilot — AI-Native Server Operations Agent
-**Window:** Jun 27, 2026 → Jul 9, 2026 (12 days)
+**Track 4: Autopilot Agent** | Global AI Hackathon Series with Qwen Cloud
+
+[![SOS Architecture](https://img.shields.io/badge/SOS-Architecture-100%25-success?style=flat&logo=architecture)](docs/sos-althr-mapping.md)
+[![SOS V2 UIK](https://img.shields.io/badge/SOS%20V2-UIK-2ECC71?style=flat)](docs/sos-althr-mapping.md)
+[![SOS V4 Intelligence Pipeline](https://img.shields.io/badge/SOS%20V4-Intelligence%20Pipeline-2ECC71?style=flat)](docs/sos-althr-mapping.md)
+[![SOS V10 Governance](https://img.shields.io/badge/SOS%20V10-Governance-2ECC71?style=flat)](docs/sos-althr-mapping.md)
+
+ALTHR Autopilot is a production-ready AI agent that automates real-world server operations workflows end-to-end. It monitors Linux servers, detects anomalies, researches root causes, proposes remediation actions, and executes them — with human-in-the-loop checkpoints at critical decision points.
+
+---
+
+## Project Overview
+
+ALTHR Autopilot transforms server operations from reactive firefighting to proactive, AI-driven automation. It continuously monitors system health, intelligently diagnoses issues using a 7-layer decision intelligence pipeline, and safely executes remediation actions through a 7-layer security framework.
+
+### Key Features
+
+- **Continuous Monitoring**: Real-time tracking of CPU, memory, disk, Docker containers, processes, and network ports
+- **Decision Intelligence**: 7-layer pipeline (DRE → DREV → CRDS → DISC → DQS → Critique → Explainability) for root cause analysis
+- **Human-in-the-Loop**: Approval queue for high-risk actions with confidence-based auto-execute threshold
+- **7-Layer Security (SAF)**: Asset classification, identity checks, network segmentation, command whitelisting, immutable audit logging, blast radius containment, governance
+- **7-Layer Memory (PML)**: Episodic, semantic, procedural, working, emotional, social, and meta-cognitive memory with vector embeddings
+- **Remote SSH Management**: Generic remote host support — manage any Linux server via SSH from the web UI
+- **Telegram Bot Interface**: Mobile-first control with command execution, approvals, and alerts
+- **Alibaba Cloud Integration**: ECS deployment, OSS storage, Cloud Monitor metrics
+
+### Tech Stack
+
+- **AI Engine**: Qwen Cloud (qwen3.7-plus, qwen3.7-max, text-embedding-v4)
+- **Backend**: Node.js + Express + Socket.io
+- **Database**: PostgreSQL (pgvector) + Redis
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + Radix UI
+- **Infrastructure**: Docker Compose + Alibaba Cloud ECS
+- **Security**: SAF 7-layer framework with immutable audit log
 
 ---
 
@@ -115,3 +145,143 @@ TRACK4/
 | Phase 4: Cloud Deploy & Submit | Days 10-12 (Jul 6-8) | Not started |
 
 See [`docs/TRACK4-BUILD-PLAN.md`](docs/TRACK4-BUILD-PLAN.md) Section 6 for detailed checklists.
+
+---
+
+## Installation & Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Docker & Docker Compose
+- Qwen Cloud API key (get free quota at https://home.qwencloud.com/benefits)
+- Alibaba Cloud account (for production deployment)
+
+### Local Development
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/althr-autopilot.git
+   cd althr-autopilot
+   ```
+
+2. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Qwen Cloud API key and other secrets
+   ```
+
+3. **Start the full stack**
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. **Access the application**
+   - Frontend: http://localhost:3001
+   - Backend API: http://localhost:3000/api
+   - Health check: http://localhost:3000/api/health
+
+### Alibaba Cloud Deployment
+
+See [`docs/deployment/alibaba-cloud-setup.md`](docs/deployment/alibaba-cloud-setup.md) for detailed ECS deployment instructions.
+
+---
+
+## Architecture
+
+The system consists of 3 main layers:
+
+1. **Monitoring Layer**: Continuously collects system metrics (CPU, memory, disk, Docker, processes, ports)
+2. **Intelligence Layer**: 7-layer decision pipeline (DRE → DREV → CRDS → DISC → DQS → Critique → Explainability) powered by Qwen Cloud
+3. **Action Layer**: SAF 7-layer security framework with human-in-the-loop approvals for safe command execution
+
+For detailed architecture diagrams, see [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md).
+
+---
+
+## SOS Architecture Alignment
+
+ALTHR Autopilot is a **domain-specific implementation** of the Solution Operating System (SOS) architecture, specialized for server operations automation. The project implements the core SOS kernel, intelligence pipeline, security framework, and memory system while adding domain-specific capabilities for Linux server management.
+
+### SOS Layer Mapping
+
+| SOS Volume | SOS Component | ALTHR Implementation | Status |
+|---|---|---|---|
+| **V1** | Foundation | Core philosophy alignment | ✅ |
+| **V2** | Universal Intelligence Kernel (UIK) | UIC, UO, PML, MCS, IQF, RIL | ✅ |
+| **V3** | Problem Understanding | Intent parser, context acquisition | ⚠️ |
+| **V4** | Intelligence Pipeline | DRE, DREV, CRDS, DISC, DQS, Critique, Explainability | ✅ |
+| **V5** | Simulation | System state, walk-forward validation | ⚠️ |
+| **V6** | Solution Architecture | Action planning, execution roadmap | ⚠️ |
+| **V7** | Execution & Learning | Orchestrator, monitor, learning engine | ✅ |
+| **V8** | Platform Integration | Qwen, Alibaba Cloud, Telegram, SSH | ⚠️ |
+| **V9** | Engineering | Microservices, event-driven, polyglot persistence | ✅ |
+| **V10** | Governance | SAF 7-layer, 5-level validation | ✅ |
+
+**Legend:** ✅ Fully implemented | ⚠️ Partially implemented with domain-specific adaptations
+
+### Key Alignments
+
+- **SOS Volume 2 (UIK)**: ALTHR implements the Universal Intelligence Kernel with UIC, UO, PML, MCS, and IQF
+- **SOS Volume 4 (Intelligence Pipeline)**: ALTHR's 7-layer decision pipeline is a direct implementation of the SOS Intelligence Pipeline
+- **SOS Volume 7 (Execution & Learning)**: ALTHR's monitoring, execution, and learning loop is fully implemented
+- **SOS Volume 10 (Governance)**: ALTHR's SAF 7-layer framework is the MCS implementation
+
+### Domain-Specific Adaptations
+
+- **Simulation → SAF Governance**: ALTHR uses SAF 7-layer security + walk-forward validation instead of full digital twin simulation (server operations are time-sensitive)
+- **Multi-Agent → Single Agent**: ALTHR uses a single agent with tool capabilities (sufficient for server ops)
+- **Complex Roadmaps → Single-Step Actions**: ALTHR simplifies solution architecture for immediate server operations actions
+
+For detailed mapping, see [`docs/sos-althr-mapping.md`](docs/sos-althr-mapping.md).
+
+---
+
+## Usage
+
+### Web Dashboard
+
+1. Navigate to http://localhost:3001
+2. View real-time system metrics on the Monitoring page
+3. Chat with the AI agent on the Agent page
+4. Approve or reject pending actions on the Approvals page
+5. Manage remote SSH hosts on the Remote page
+
+### Telegram Bot
+
+1. Start a conversation with your bot
+2. Use `/status` to check system health
+3. Use `/monitor` to view current metrics
+4. Use `/approve` or `/reject` to handle pending actions
+
+### API
+
+All endpoints are documented in [`docs/api/api-reference.md`](docs/api/api-reference.md).
+
+---
+
+## Security
+
+- **SAF 7-Layer Framework**: Every action passes through asset classification, identity checks, network segmentation, command whitelisting, immutable audit logging, blast radius containment, and governance
+- **Immutable Audit Log**: PostgreSQL triggers prevent modification of audit records
+- **Command Whitelist**: Only pre-approved commands can be executed
+- **Human-in-the-Loop**: High-risk actions require explicit approval
+
+See [`docs/architecture/security-architecture.md`](docs/architecture/security-architecture.md) for details.
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) file for details.
+
+---
+
+## Hackathon Submission
+
+This project is submitted to **Track 4: Autopilot Agent** of the Global AI Hackathon Series with Qwen Cloud.
+
+- **Proof of Alibaba Cloud Deployment**: See [`backend/src/utils/alibaba.js`](backend/src/utils/alibaba.js)
+- **Architecture Diagram**: See [`docs/architecture/system-architecture.md`](docs/architecture/system-architecture.md)
+- **Demo Video**: (to be added)
+- **Blog Post**: (to be added)

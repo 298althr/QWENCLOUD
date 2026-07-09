@@ -28,9 +28,19 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.windsurf/
 
 # Docker volumes (local)
 docker/data/
+
+# Local runtime data and internal docs
+SOS-volumes/
+docs/
+DESIGN.md
+
+# Scratch / throwaway test scripts
+test-*.mjs
+_git_status*.txt
 
 # Test artifacts
 coverage/

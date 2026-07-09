@@ -1,4 +1,8 @@
 // backend/src/decision/mass.js
+// SOS Architecture Mapping:
+// - SOS V4 (Intelligence Pipeline): Decision Quality System (DQS) - measures decision quality before execution
+// - SOS V2 (UIK): Intelligence Quality Framework (IQF) - measures quality throughout intelligence pipeline
+//
 // Decision Mass calculation (DQS/DQL layer) for ALTHR Autopilot.
 // Every decision is quantified by size, risk, complexity, and confidence modifier.
 // The Decision Index (DI) determines authentication depth and monitoring intensity.

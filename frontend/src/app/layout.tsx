@@ -1,11 +1,26 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "ALTHR Autopilot",
   description:
     "AI-Native Server Operations Agent — powered by Qwen Cloud (Track 4)",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ALTHR Autopilot",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b0f1a",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -16,12 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-x-hidden">
-            <div className="mx-auto max-w-7xl px-6 py-8">{children}</div>
-          </main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

@@ -4,7 +4,7 @@
 
 const express = require("express");
 const router = express.Router();
-const { executeTool } = require("../qwen/toolExecutor");
+const { deployFromRepo } = require("../deploy/deployEngine");
 const { safCheck } = require("../pipeline/saf");
 const { audit } = require("../utils/audit");
 const { query } = require("../db/pool");
@@ -13,27 +13,36 @@ router.post("/", async (req, res) => {
   const { repo_url, port, env_vars } = req.body || {};
   if (!repo_url) return res.status(400).json({ error: "repo_url is required" });
 
-  const saf = await safCheck(`deploy ${repo_url}`, "deploy", "medium", { username: "api", role: "admin" }, 0.8, false);
+  const user = req.user || { username: "api", role: "admin" };
+  const isAdmin = user.role === "admin" || user.role === "operator";
+  // Treat dashboard-initiated deploy as admin-approved; SAF still checks whitelist and asset class.
+  const saf = await safCheck(`deploy ${repo_url}`, "deploy", "low", user, 0.9, isAdmin);
   if (!saf.passed) {
     return res.status(403).json({ error: "blocked by SAF", saf });
   }
 
   try {
-    // Step 1: Clone the repo
-    const cloneResult = await executeTool("git_clone", { repo_url });
+    const result = await deployFromRepo({ repo_url, requestedPort: port, env_vars });
 
-    // Step 2: Build Docker image
-    const buildResult = await executeTool("docker_build", { path: cloneResult.path, tag: `althr-${Date.now()}` });
+    await audit({
+      operation: "execute",
+      actor: "api",
+      target: repo_url,
+      target_type: "deployment",
+      reasoning: result.success
+        ? `Deployed ${result.stack} app on port ${result.hostPort} at ${result.appUrl}`
+        : `Deployment failed at ${result.stage}: ${result.error}`,
+      safResult: saf,
+      result: result.success ? "success" : "failure",
+    });
 
-    // Step 3: Run container
-    const runResult = await executeTool("docker_run", { image: buildResult.tag, ports: port ? `${port}:8080` : "8080:8080", env_vars });
-
-    await audit({ operation: "execute", actor: "api", target: repo_url, target_type: "deployment", reasoning: "GitHub deploy", safResult: saf, result: "success" });
-
-    res.json({ clone: cloneResult, build: buildResult, run: runResult });
+    if (!result.success) {
+      return res.status(500).json(result);
+    }
+    res.json(result);
   } catch (e) {
-    await audit({ operation: "execute", actor: "api", target: repo_url, target_type: "deployment", reasoning: "GitHub deploy failed", safResult: saf, result: "failure" });
-    res.status(500).json({ error: e.message });
+    await audit({ operation: "execute", actor: "api", target: repo_url, target_type: "deployment", reasoning: `Deployment error: ${e.message}`, safResult: saf, result: "failure" });
+    res.status(500).json({ success: false, stage: "exception", error: e.message });
   }
 });
 

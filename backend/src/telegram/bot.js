@@ -8,7 +8,7 @@
 // Only starts if TELEGRAM_BOT_TOKEN is set.
 
 const TelegramBot = require("node-telegram-bot-api");
-const { handleAgentMessage } = require("../pipeline/orchestrator");
+const { handleAgentMessage, handleAICommandExecution } = require("../pipeline/orchestrator");
 const { listPending, approveAction, rejectAction } = require("../pipeline/approvals");
 const { get_server_health, executeTool } = require("../qwen/toolExecutor");
 const { queryAudit } = require("../utils/audit");
@@ -45,6 +45,7 @@ function start(io) {
       "*ALTHR Autopilot* online 🤖\n\n" +
         "Send a natural-language command, or use:\n" +
         "`/status` — server health\n" +
+        "`/ai <command>` — AI-powered DevOps command execution\n" +
         "`/deploy <url>` — deploy from GitHub\n" +
         "`/containers` — Docker containers\n" +
         "`/security` — security scan\n" +
@@ -224,6 +225,44 @@ function start(io) {
   bot.onText(/^\/cancel/, (msg) => {
     if (!allowedFilter(msg)) return;
     bot.sendMessage(msg.chat.id, "ℹ️ Send /pending to see actions that can be cancelled. Use /reject <id> to cancel.");
+  });
+
+  // ---- AI Command Execution ----
+  bot.onText(/^\/ai\s+(.+)/, async (msg, match) => {
+    if (!allowedFilter(msg)) return;
+    const command = match[1].trim();
+    const chatId = msg.chat.id;
+    
+    bot.sendMessage(chatId, `🤖 AI processing: "${command}"...`);
+    
+    try {
+      const result = await handleAICommandExecution(
+        command,
+        { username: `tg:${msg.from.id}`, role: "admin" }
+      );
+
+      if (result.success) {
+        const response =
+          `✅ *AI Command Executed*\n\n` +
+          `🔧 Command: ${result.command_name}\n` +
+          `📊 Confidence: ${(result.confidence * 100).toFixed(0)}%\n` +
+          `⚠️ Risk: ${result.risk_level}\n` +
+          `💭 Reasoning: ${result.reasoning}\n\n` +
+          `📋 Parameters: ${JSON.stringify(result.parameters)}\n\n` +
+          `🎯 Execution Result:\n${JSON.stringify(result.execution, null, 2).slice(0, 800)}`;
+        
+        bot.sendMessage(chatId, response, { parse_mode: "Markdown" });
+      } else {
+        const response =
+          `❌ *AI Command Failed*\n\n` +
+          `Error: ${result.error}\n` +
+          (result.reasoning ? `Reasoning: ${result.reasoning}` : '');
+        
+        bot.sendMessage(chatId, response, { parse_mode: "Markdown" });
+      }
+    } catch (e) {
+      bot.sendMessage(chatId, `❌ AI command error: ${e.message}`);
+    }
   });
 
   // ---- Inline keyboard callbacks (approve/reject) ----

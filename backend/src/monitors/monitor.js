@@ -1,4 +1,9 @@
 // backend/src/monitors/monitor.js
+// SOS Architecture Mapping:
+// - SOS V5 (Simulation): Digital Twin Manager - creates digital representation of system state
+// - SOS V7 (Execution & Learning): Monitoring Engine - measures actual execution
+// - SOS V7 (Execution & Learning): Feedback Engine - captures reality from system metrics
+//
 // Continuous monitoring service — polls server health every 30s and detects
 // anomalies (CPU, RAM, disk, process crashes, port conflicts).
 //

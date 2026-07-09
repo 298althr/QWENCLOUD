@@ -5,15 +5,10 @@
 const { qwen, MODELS } = require("./client");
 const { TOOLS } = require("./skills");
 const { executeTool } = require("./toolExecutor");
+const { guardedCreate, getThinkingBudget } = require("./guardrails");
+const { ACTION_PLANNER_PROMPT } = require("./prompts");
 
-const SYSTEM_PROMPT = `You are the action planner for ALTHR Autopilot, an AI server operations agent running on Qwen Cloud.
-Given a parsed intent and the current server state, produce a multi-step action plan by calling the provided tools.
-Rules:
-- Prefer read-only tools first (get_server_health, list_processes, check_ports, read_file) before mutating ones.
-- Every mutating or service-affecting action MUST be preceded by a saf_check tool call.
-- Use parallel_tool_calls when independent checks can run together (e.g. check CPU, RAM, and disk at once).
-- If the user's request is ambiguous, choose the safest reasonable interpretation and note the assumption.
-- After tools return, summarise the outcome for the operator in 1-3 sentences.`;
+const SYSTEM_PROMPT = ACTION_PLANNER_PROMPT;
 
 /**
  * @param {object} intent  Output of intent-parser.parseIntent
@@ -24,7 +19,7 @@ Rules:
 async function planAndAct(intent, serverState = {}, opts = {}) {
   const parallelToolCalls = opts.parallelToolCalls !== false;
 
-  const res = await qwen.chat.completions.create({
+  const res = await guardedCreate(qwen, {
     model: MODELS.MAX,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
@@ -37,10 +32,10 @@ async function planAndAct(intent, serverState = {}, opts = {}) {
     tool_choice: "auto",
     parallel_tool_calls: parallelToolCalls,
     enable_thinking: true,
-    thinking_budget: 2000,
+    thinking_budget: getThinkingBudget("planning"),
     preserve_thinking: true,
     temperature: 0.3,
-  });
+  }, { module: "action-planner", taskType: "planning" });
 
   const msg = res.choices[0].message;
   const reasoning = msg.reasoning_content || null;

@@ -40,6 +40,7 @@ app.get("/api/health", async (req, res) => {
   res.json(health);
 });
 
+
 // ---- Routes (mounted incrementally as built) ----
 try {
   app.use("/api", require("./routes/index"));
@@ -146,6 +147,88 @@ const PORT = process.env.PORT || 3000;
 async function boot() {
   // Connect Redis (best-effort; not fatal if down on first boot)
   await connectRedis().catch((e) => console.warn("[redis] connect skipped:", e.message));
+
+  // Initialize SOS component schemas
+  try {
+    const usms = require("./kernel/usms");
+    await usms.initializeSchema();
+    console.log("[sos] USMS schema initialized");
+  } catch (e) {
+    console.warn("[sos] USMS initialization skipped:", e.message);
+  }
+
+  try {
+    const ueb = require("./kernel/ueb");
+    await ueb.initializeSchema();
+    console.log("[sos] UEB schema initialized");
+  } catch (e) {
+    console.warn("[sos] UEB initialization skipped:", e.message);
+  }
+
+  try {
+    const ksr = require("./kernel/ksr");
+    await ksr.initializeSchema();
+    console.log("[sos] KSR schema initialized");
+  } catch (e) {
+    console.warn("[sos] KSR initialization skipped:", e.message);
+  }
+
+  try {
+    const digitalTwinManager = require("./simulation/digitalTwin");
+    await digitalTwinManager.initializeSchema();
+    console.log("[sos] Digital Twin schema initialized");
+  } catch (e) {
+    console.warn("[sos] Digital Twin initialization skipped:", e.message);
+  }
+
+  try {
+    const simulationBroker = require("./simulation/simulationBroker");
+    await simulationBroker.initializeSchema();
+    console.log("[sos] Simulation Broker schema initialized");
+  } catch (e) {
+    console.warn("[sos] Simulation Broker initialization skipped:", e.message);
+  }
+
+  try {
+    const approvals = require("./pipeline/approvals");
+    await approvals.initSchema();
+    await approvals.loadPendingFromDb();
+    console.log("[sos] Approvals schema initialized and loaded");
+  } catch (e) {
+    console.warn("[sos] Approvals initialization skipped:", e.message);
+  }
+
+  try {
+    const walkForwardValidator = require("./simulation/walkForwardValidator");
+    await walkForwardValidator.initializeSchema();
+    console.log("[sos] Walk-Forward Validator schema initialized");
+  } catch (e) {
+    console.warn("[sos] Walk-Forward Validator initialization skipped:", e.message);
+  }
+
+  try {
+    const workflowEngine = require("./execution/workflowEngine");
+    await workflowEngine.initializeSchema();
+    console.log("[sos] Workflow Engine schema initialized");
+  } catch (e) {
+    console.warn("[sos] Workflow Engine initialization skipped:", e.message);
+  }
+
+  try {
+    const trustCalibrationEngine = require("./execution/trustCalibration");
+    await trustCalibrationEngine.initializeSchema();
+    console.log("[sos] Trust Calibration Engine schema initialized");
+  } catch (e) {
+    console.warn("[sos] Trust Calibration Engine initialization skipped:", e.message);
+  }
+
+  try {
+    const optimizationEngine = require("./execution/optimizationEngine");
+    await optimizationEngine.initializeSchema();
+    console.log("[sos] Optimization Engine schema initialized");
+  } catch (e) {
+    console.warn("[sos] Optimization Engine initialization skipped:", e.message);
+  }
 
   // Start Telegram bot (only if token configured)
   try {

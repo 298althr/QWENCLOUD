@@ -106,7 +106,12 @@ async function store(layer, content, metadata = {}) {
       const vecLiteral = embedding ? `[${embedding.join(",")}]` : null;
       return (await query(
         `INSERT INTO m6_learning (action_id, error_type, drift, improvement_note, pattern_hash, reinforcement_count, embedding)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::vector) RETURNING id`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7::vector)
+         ON CONFLICT (pattern_hash) DO UPDATE SET
+           reinforcement_count = m6_learning.reinforcement_count + 1,
+           improvement_note = EXCLUDED.improvement_note,
+           timestamp = NOW()
+         RETURNING id`,
         [
           metadata.action_id || null,
           metadata.error_type || null,

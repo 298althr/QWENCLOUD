@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
+import { KPICard } from "@/components/charts/KPICard";
+import { AreaChart } from "@/components/charts/AreaChart";
+import { PageHeader, SectionCard } from "@/components/design-system";
+import { TrendingUp, BarChart3, Layers } from "lucide-react";
 
 export default function AnalyticsPage() {
   const [dqTrend, setDqTrend] = useState<any[]>([]);
@@ -18,55 +23,38 @@ export default function AnalyticsPage() {
     ? (dqTrend.reduce((sum, d) => sum + Number(d.dq_score), 0) / dqTrend.length).toFixed(1)
     : "—";
 
+  const totalDecisions = dqTrend.reduce((sum, d) => sum + d.decision_count, 0);
+
+  const chartData = dqTrend.map((d) => ({ time: d.date, value: Number(d.dq_score) }));
+
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-gold-400">Analytics</h1>
-        <p className="text-sm text-ink-500">Decision Quality (DQ) scores and agent performance metrics.</p>
-      </header>
+    <div className="space-y-xl">
+      <PageHeader
+        title="Performance"
+        description="Decision quality scores and agent performance metrics"
+      />
 
-      {/* Summary cards */}
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="card p-5">
-          <h3 className="text-sm font-medium text-ink-500">Avg DQ Score (30d)</h3>
-          <div className="mt-2 text-3xl font-bold text-gold-400">{avgDQ}</div>
-        </div>
-        <div className="card p-5">
-          <h3 className="text-sm font-medium text-ink-500">Data Points</h3>
-          <div className="mt-2 text-3xl font-bold text-gold-400">{dqTrend.length}</div>
-        </div>
-        <div className="card p-5">
-          <h3 className="text-sm font-medium text-ink-500">Total Decisions</h3>
-          <div className="mt-2 text-3xl font-bold text-gold-400">
-            {dqTrend.reduce((sum, d) => sum + d.decision_count, 0)}
-          </div>
-        </div>
-      </section>
-
-      {/* DQ trend chart */}
-      <section className="card p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-ink-500">DQ Score Trend</h2>
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {loading ? (
-          <p className="text-sm text-ink-600">Loading…</p>
-        ) : dqTrend.length === 0 ? (
-          <p className="text-sm text-ink-600">No DQ data yet. Run agent actions to populate the trend.</p>
+          [1,2,3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)
         ) : (
-          <div className="space-y-2">
-            {dqTrend.map((d, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="w-24 text-xs text-ink-600">{d.date}</span>
-                <div className="flex-1 h-6 overflow-hidden rounded bg-ink-800">
-                  <div
-                    className="h-full bg-gradient-to-r from-gold-500 to-gold-600 transition-all"
-                    style={{ width: `${Math.min(Number(d.dq_score), 100)}%` }}
-                  />
-                </div>
-                <span className="w-12 text-right text-xs text-gold-400">{d.dq_score}</span>
-              </div>
-            ))}
-          </div>
+          <>
+            <KPICard label="Avg Decision Score (30d)" value={avgDQ} status="info" icon={<TrendingUp className="h-4 w-4" />} />
+            <KPICard label="Data Points" value={dqTrend.length} status="info" icon={<BarChart3 className="h-4 w-4" />} />
+            <KPICard label="Total Decisions" value={totalDecisions} status="info" icon={<Layers className="h-4 w-4" />} />
+          </>
         )}
       </section>
+
+      <SectionCard title="Decision Score Trend" description="Decision quality over the last 30 days" delay={0.1}>
+        {loading ? (
+          <Skeleton className="h-[250px] w-full" />
+        ) : dqTrend.length === 0 ? (
+          <p className="text-sm text-ink-600">No decision data yet. Run agent actions to populate the trend.</p>
+        ) : (
+          <AreaChart data={chartData} color="#d4af5f" label="Decision Score" height={250} />
+        )}
+      </SectionCard>
     </div>
   );
 }
