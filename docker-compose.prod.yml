@@ -67,6 +67,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - althr_files:/var/althr-volumes
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 10s
@@ -106,3 +109,4 @@ services:
 volumes:
   althr_pgdata:
   althr_redisdata:
+  althr_files:
