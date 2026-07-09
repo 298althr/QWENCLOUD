@@ -41,6 +41,7 @@ DESIGN.md
 # Scratch / throwaway test scripts
 test-*.mjs
 _git_status*.txt
+ecs_instance_list_*.csv
 
 # Test artifacts
 coverage/
