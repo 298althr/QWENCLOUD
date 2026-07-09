@@ -35,6 +35,9 @@ const THRESHOLDS = {
 
 const POLL_INTERVAL_MS = Number(process.env.MONITOR_INTERVAL_MS || 30000);
 
+// Anomaly cooldown: don't re-diagnose the same anomaly type within this window
+const ANOMALY_COOLDOWN_MS = Number(process.env.ANOMALY_COOLDOWN_MS || 5 * 60 * 1000);
+
 // Track state for sustained-anomaly detection (CPU needs 5 min sustained)
 const state = {
   cpuHighSince: null,
@@ -43,6 +46,7 @@ const state = {
   running: false,
   intervalId: null,
   io: null,
+  anomalyCooldowns: new Map(),
 };
 
 /**
@@ -177,6 +181,9 @@ function detectAnomalies(metrics) {
  */
 async function handleAnomaly(anomaly, metrics) {
   const anomalyId = `anom_${uuidv4().slice(0, 8)}`;
+  const now = Date.now();
+  const lastHandled = state.anomalyCooldowns.get(anomaly.type);
+  const inCooldown = lastHandled && now - lastHandled < ANOMALY_COOLDOWN_MS;
 
   // 1. Store in M1 (Raw Event)
   await memory.store("M1", anomaly.message, {
@@ -187,10 +194,14 @@ async function handleAnomaly(anomaly, metrics) {
 
   // 2. Emit alert to dashboard
   if (state.io) {
-    state.io.emit("anomaly_alert", { id: anomalyId, ...anomaly, timestamp: new Date().toISOString() });
+    state.io.emit("anomaly_alert", { id: anomalyId, ...anomaly, timestamp: new Date().toISOString(), inCooldown });
   }
 
-  console.log(`[monitor] Anomaly: ${anomaly.type} — ${anomaly.message}`);
+  console.log(`[monitor] Anomaly: ${anomaly.type} — ${anomaly.message}${inCooldown ? " (cooldown, skipping Qwen)" : ""}`);
+
+  if (inCooldown) {
+    return;
+  }
 
   // 3. Check M3 for a known SOP (learning loop)
   const { found, sop } = await lookupSOP(anomaly.type);
@@ -200,11 +211,13 @@ async function handleAnomaly(anomaly, metrics) {
       state.io.emit("sop_match", { anomalyId, sop: { name: sop.sop_name, steps: sop.steps_json, successCount: sop.success_count } });
     }
     // Apply the known fix directly (still goes through SAF)
+    state.anomalyCooldowns.set(anomaly.type, now);
     await applyKnownSOP(anomalyId, anomaly, sop, metrics);
     return;
   }
 
   // 4. No known SOP → trigger Qwen diagnosis with thinking + streaming
+  state.anomalyCooldowns.set(anomaly.type, now);
   await diagnoseWithQwen(anomalyId, anomaly, metrics);
 }
 

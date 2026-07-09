@@ -142,4 +142,7 @@ router.use("/remote", require("./remote"));
 // Settings
 router.use("/settings", require("./settings"));
 
+// Monitor kill switch
+router.use("/monitor", require("./monitor").router);
+
 module.exports = router;

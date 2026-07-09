@@ -37,6 +37,11 @@ export const api = {
     fetchAPI(`/processes?sort_by=${sortBy}&limit=${limit}`),
   ports: () => fetchAPI("/ports"),
   dockerContainers: () => fetchAPI("/docker/containers"),
+  containerAction: (id: string, action: "stop" | "start" | "restart") =>
+    fetchAPI(`/docker/containers/${id}/action`, { method: "POST", body: JSON.stringify({ action }) }),
+  monitorStatus: () => fetchAPI("/monitor/status"),
+  stopMonitor: () => fetchAPI("/monitor/stop", { method: "POST" }),
+  startMonitor: () => fetchAPI("/monitor/start", { method: "POST" }),
 
   // Command
   runCommand: (command: string, timeout?: number) =>
@@ -47,6 +52,7 @@ export const api = {
   readFile: (path: string) => fetchAPI(`/file/read?path=${encodeURIComponent(path)}`),
   writeFile: (path: string, content: string) =>
     fetchAPI("/file/write", { method: "POST", body: JSON.stringify({ path, content }) }),
+  mkdir: (path: string) => fetchAPI("/file/mkdir", { method: "POST", body: JSON.stringify({ path }) }),
 
   // Deployments
   deploy: (repo_url: string, port?: number) =>

@@ -2,8 +2,10 @@
 // GET  /api/file/list?path=...   — list directory contents
 // GET  /api/file/read?path=...   — read file content
 // POST /api/file/write            — write file content
+// POST /api/file/mkdir            — create a directory
 
 const express = require("express");
+const fs = require("fs");
 const router = express.Router();
 const { executeTool } = require("../qwen/toolExecutor");
 const { audit } = require("../utils/audit");
@@ -44,6 +46,24 @@ router.post("/write", async (req, res) => {
     const result = await executeTool("write_file", { path: filePath, content });
     await audit({ operation: "execute", actor: user.username, target: filePath, target_type: "file", reasoning: "direct file write via API", result: result.ok ? "success" : "failure" });
     res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/mkdir", async (req, res) => {
+  const { path: dirPath } = req.body || {};
+  if (!dirPath) return res.status(400).json({ error: "path is required" });
+
+  const user = req.user || { username: "api", role: "admin" };
+  if (user.role !== "admin" && user.role !== "operator") {
+    return res.status(403).json({ error: "insufficient role for directory creation" });
+  }
+
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    await audit({ operation: "execute", actor: user.username, target: dirPath, target_type: "directory", reasoning: "directory created via API", result: "success" });
+    res.json({ ok: true, path: dirPath });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

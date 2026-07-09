@@ -141,6 +141,15 @@ async function list_containers() {
   return { containers, count: containers.length };
 }
 
+async function container_action({ action, container_id, timeout = 30000 }) {
+  if (!container_id) return { ok: false, error: "container_id is required" };
+  if (!["stop", "start", "restart"].includes(action)) {
+    return { ok: false, error: `invalid action ${action}` };
+  }
+  const res = await runShell(`docker ${action} ${container_id}`, timeout);
+  return { ok: res.exit_code === 0, action, container_id, stdout: res.stdout, stderr: res.stderr };
+}
+
 async function git_clone({ repo_url, dest }) {
   const res = await runShell(`git clone ${repo_url} ${dest ? `"${dest}"` : ""}`, 60000);
   return { repo_url, dest, ...res };
@@ -212,6 +221,7 @@ const HANDLERS = {
   docker_build,
   docker_run,
   list_containers,
+  container_action,
   git_clone,
   run_security_scan,
   get_server_health,

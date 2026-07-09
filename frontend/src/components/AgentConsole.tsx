@@ -58,33 +58,35 @@ export default function AgentConsole() {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [metrics, setMetrics] = useState<{ cpu: number; ram: number; disk: number | null } | null>(null);
   const [activeTab, setActiveTab] = useState<"stream" | "history">("stream");
-  const { actions, isProcessing, approvals, addAction, setProcessing, clearConsole } = useAgentStore();
+  const [actions, setActions] = useState<any[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const { isProcessing, approvals, setProcessing, clearConsole } = useAgentStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const off1 = onReasoningStream((d) => {
+      if (!isListening) return;
       setThinkingText((prev) => prev + d.chunk);
       setIsThinking(true);
     });
     const off2 = onResponseStream((d) => {
+      if (!isListening) return;
       setResponseText((prev) => prev + d.chunk);
       setIsThinking(false);
     });
     const off3 = onActionUpdate((d) => {
-      addAction(d);
-      if (d.stage === "diagnosis_complete" || d.stage === "complete") {
+      if (!isListening) return;
+      setActions((prev) => [...prev.slice(-50), { ...d, timestamp: Date.now() }]);
+      if (d.stage === "diagnosis_complete" || d.stage === "complete" || d.stage === "error" || d.stage === "remediated") {
         setProcessing(false);
         setIsThinking(false);
-      }
-      if (d.stage === "error") {
-        setProcessing(false);
-        setIsThinking(false);
+        setIsListening(false);
       }
     });
     const off4 = onServerMetrics((m) => setMetrics({ cpu: m.cpu, ram: m.ram, disk: m.disk }));
     return () => { off1(); off2(); off3(); off4(); };
-  }, []);
+  }, [isListening, setProcessing]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -104,8 +106,10 @@ export default function AgentConsole() {
     setProcessing(true);
     setThinkingText("");
     setResponseText("");
+    setActions([]);
     setShowThinking(false);
     setIsThinking(true);
+    setIsListening(true);
     clearConsole();
     setHistory((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text: message, timestamp: Date.now() }]);
     sendAgentMessage(message);
@@ -193,6 +197,8 @@ export default function AgentConsole() {
                   clearConsole();
                   setThinkingText("");
                   setResponseText("");
+                  setActions([]);
+                  setIsListening(false);
                   setIsThinking(false);
                 }}
                 className="rounded-md p-1 text-ink-500 hover:text-ink-200 transition-micro"

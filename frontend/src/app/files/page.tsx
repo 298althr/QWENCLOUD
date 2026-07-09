@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, SectionCard } from "@/components/design-system";
-import { FolderOpen, FileText, Home, Save } from "lucide-react";
+import { FolderOpen, FileText, Home, Save, FolderPlus, FilePlus } from "lucide-react";
 import { toast } from "sonner";
 
 export default function FilesPage() {
@@ -15,6 +15,8 @@ export default function FilesPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const list = async (p: string) => {
     setError("");
@@ -63,6 +65,38 @@ export default function FilesPage() {
     }
   };
 
+  const createFile = async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const fullPath = `${path}/${newName.trim()}`;
+      await api.writeFile(fullPath, "");
+      toast.success(`Created ${fullPath}`);
+      setNewName("");
+      list(path);
+    } catch (e: any) {
+      toast.error(`Create file failed: ${e.message}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const createFolder = async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const fullPath = `${path}/${newName.trim()}`;
+      await api.mkdir(fullPath);
+      toast.success(`Created folder ${fullPath}`);
+      setNewName("");
+      list(path);
+    } catch (e: any) {
+      toast.error(`Create folder failed: ${e.message}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-xl">
       <PageHeader
@@ -76,7 +110,21 @@ export default function FilesPage() {
           description={path}
           delay={0.1}
           headerActions={
-            <div className="flex gap-1">
+            <div className="flex gap-1 items-center">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="New name..."
+                className="rounded border border-ink-700 bg-ink-950 px-2 py-1 text-xs text-ink-200 placeholder-ink-600 focus:border-gold-500 focus:outline-none"
+                onKeyDown={(e) => { if (e.key === "Enter") createFile(); }}
+              />
+              <Button variant="ghost" size="sm" onClick={createFile} disabled={creating || !newName.trim()} title="New file">
+                <FilePlus className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={createFolder} disabled={creating || !newName.trim()} title="New folder">
+                <FolderPlus className="h-3.5 w-3.5" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={navigateUp} disabled={path === "/var/althr-volumes/files"} title="Go up">
                 <FolderOpen className="h-3.5 w-3.5" />
               </Button>

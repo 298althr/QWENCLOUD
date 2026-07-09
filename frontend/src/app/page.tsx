@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { AreaChart } from "@/components/charts/AreaChart";
 import { PageHeader, MetricCard, SectionCard, ActivityFeed, QuickActions, StatusPill } from "@/components/design-system";
 import ApprovalCard from "@/components/ApprovalCard";
-import { Cpu, MemoryStick, HardDrive, Activity, CheckCircle2, AlertTriangle, Terminal, ShieldCheck, Zap } from "lucide-react";
+import { Cpu, MemoryStick, HardDrive, Activity, CheckCircle2, AlertTriangle, Terminal, ShieldCheck, Zap, Power, Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { ActivityItem } from "@/components/design-system";
 
@@ -38,11 +38,16 @@ function stageToTitle(stage: string, action?: string) {
 export default function HomePage() {
   const { metrics, actions, approvals, setMetrics, addAlert, addAction, addApproval } = useAgentStore();
   const [simulating, setSimulating] = useState<string | null>(null);
+  const [monitorEnabled, setMonitorEnabled] = useState<boolean | null>(null);
+  const [containers, setContainers] = useState<any[]>([]);
+  const [containerLoading, setContainerLoading] = useState<string | null>(null);
   const cpuHistory = useRef<{ time: string; value: number }[]>([]);
   const ramHistory = useRef<{ time: string; value: number }[]>([]);
   const diskHistory = useRef<{ time: string; value: number }[]>([]);
 
   useEffect(() => {
+    loadMonitorStatus();
+    loadContainers();
     const offMetrics = onServerMetrics((m) => {
       setMetrics({ cpu: m.cpu, ram: m.ram, disk: m.disk });
       const now = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -108,6 +113,48 @@ export default function HomePage() {
       toast.error(`Simulation failed: ${e.message}`);
     } finally {
       setSimulating(null);
+    }
+  };
+
+  const loadMonitorStatus = async () => {
+    try {
+      const status = await api.monitorStatus();
+      setMonitorEnabled(status.enabled);
+    } catch { /* ignore */ }
+  };
+
+  const toggleMonitor = async () => {
+    try {
+      if (monitorEnabled) {
+        await api.stopMonitor();
+        toast.success("Autonomous monitor stopped");
+      } else {
+        await api.startMonitor();
+        toast.success("Autonomous monitor started");
+      }
+      await loadMonitorStatus();
+    } catch (e: any) {
+      toast.error(`Monitor toggle failed: ${e.message}`);
+    }
+  };
+
+  const loadContainers = async () => {
+    try {
+      const r = await api.dockerContainers();
+      setContainers(r.containers || []);
+    } catch { /* ignore */ }
+  };
+
+  const containerAction = async (id: string, action: "stop" | "start" | "restart") => {
+    setContainerLoading(`${id}-${action}`);
+    try {
+      await api.containerAction(id, action);
+      toast.success(`Container ${action} sent`);
+      await loadContainers();
+    } catch (e: any) {
+      toast.error(`Container ${action} failed: ${e.message}`);
+    } finally {
+      setContainerLoading(null);
     }
   };
 
@@ -240,6 +287,47 @@ export default function HomePage() {
           </SectionCard>
           <SectionCard title="Try These Commands" delay={0.3}>
             <QuickActions actions={quickActions} />
+          </SectionCard>
+          <SectionCard
+            title="System Controls"
+            description="Stop AI loop and manage containers"
+            delay={0.36}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-400">AI Monitor</span>
+                <Button
+                  variant={monitorEnabled ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={toggleMonitor}
+                  disabled={monitorEnabled === null}
+                  className="gap-1"
+                >
+                  {monitorEnabled ? <Power className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                  {monitorEnabled === null ? "Loading" : monitorEnabled ? "Stop AI" : "Start AI"}
+                </Button>
+              </div>
+              <div className="space-y-1">
+                <div className="text-xs text-ink-500 uppercase">Containers</div>
+                {containers.length === 0 ? (
+                  <div className="text-sm text-ink-600">No containers running</div>
+                ) : (
+                  containers.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between rounded border border-ink-800 p-2">
+                      <div className="text-xs text-ink-300 truncate max-w-[100px]">{c.name}</div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Restart" onClick={() => containerAction(c.id, "restart")} disabled={containerLoading === `${c.id}-restart`}>
+                          <RotateCcw className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-status-crit" title="Stop" onClick={() => containerAction(c.id, "stop")} disabled={containerLoading === `${c.id}-stop`}>
+                          <Power className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </SectionCard>
           <SectionCard
             title="System Status"
