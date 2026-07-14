@@ -7,34 +7,36 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Wise-inspired design system (DESIGN.md)
+        // Light theme: sage canvas, white cards, lime-green accent
         ink: {
-          1000: "#03050a",
-          950: "#070a12",
-          900: "#0b0f1a",
-          850: "#0f1422",
-          800: "#141a2b",
-          750: "#182034",
-          700: "#1c2438",
-          600: "#27314a",
-          500: "#3a4768",
-          400: "#5c6b90",
-          300: "#8e9bbd",
-          200: "#c3cbe0",
-          100: "#e6e9f2",
+          1000: "#0e0f0c",  // near-black ink (primary text)
+          950: "#e8ebe6",   // sage canvas (page background)
+          900: "#ffffff",   // white (panel background)
+          850: "#ffffff",   // white (card background)
+          800: "#e8ebe6",   // sage (card hover / secondary surface)
+          750: "#e8ebe6",   // sage
+          700: "#d4d8d0",   // light sage border
+          600: "#b8beb4",   // border hover
+          500: "#868685",   // mute (lowest priority text)
+          400: "#454745",   // body (secondary text)
+          300: "#454745",   // body
+          200: "#454745",   // body
+          100: "#0e0f0c",   // ink (primary text on light surfaces)
         },
         gold: {
-          300: "#f0ddb0",
-          400: "#e8c87a",
-          500: "#d4af5f",
-          600: "#b8924a",
-          700: "#8f6f33",
+          300: "#6B7E3C",   // lighter army green (hover/active states)
+          400: "#4A5D23",   // army green (primary accent)
+          500: "#4A5D23",   // army green (primary)
+          600: "#3A4A1C",   // darker army green (hover)
+          700: "#2A3A14",   // very dark army green (text on light)
         },
         status: {
-          ok: "#3ddc84",
-          warn: "#f5b342",
-          crit: "#ff5c5c",
-          info: "#5aa9ff",
-          ai: "#c084fc",
+          ok: "#3a7d2c",    // positive (darker green for contrast on white)
+          warn: "#b86700",   // warning-deep (readable on light)
+          crit: "#d03238",   // negative
+          info: "#0e7fb0",   // darker cyan for contrast on white
+          ai: "#4A5D23",     // army green for AI indicators
         },
       },
       fontFamily: {
@@ -62,19 +64,19 @@ module.exports = {
       },
       borderRadius: {
         pill: "999px",
-        input: "8px",
-        card: "12px",
-        modal: "16px",
+        input: "12px",   // Wise rounded.md
+        card: "24px",    // Wise rounded.xl (canonical)
+        modal: "24px",   // Wise rounded.xl
       },
       boxShadow: {
-        glow: "0 0 24px rgba(212,175,95,0.15)",
-        "glow-sm": "0 0 12px rgba(212,175,95,0.12)",
-        "glow-lg": "0 0 36px rgba(212,175,95,0.2)",
-        card: "0 1px 2px rgba(0,0,0,0.2)",
-        "card-hover": "0 4px 12px rgba(0,0,0,0.25)",
-        elevated: "0 8px 24px rgba(0,0,0,0.3)",
-        modal: "0 16px 48px rgba(0,0,0,0.4)",
-        inset: "inset 0 1px 2px rgba(0,0,0,0.2)",
+        glow: "0 0 24px rgba(74, 93, 35, 0.2)",
+        "glow-sm": "0 0 12px rgba(74, 93, 35, 0.15)",
+        "glow-lg": "0 0 36px rgba(74, 93, 35, 0.25)",
+        card: "0 1px 3px rgba(14,15,12,0.06)",
+        "card-hover": "0 4px 16px rgba(14,15,12,0.08)",
+        elevated: "0 8px 24px rgba(14,15,12,0.10)",
+        modal: "0 16px 48px rgba(14,15,12,0.12)",
+        inset: "inset 0 1px 2px rgba(14,15,12,0.06)",
       },
       transitionDuration: {
         micro: "150ms",

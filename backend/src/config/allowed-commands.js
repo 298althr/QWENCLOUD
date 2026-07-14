@@ -6,19 +6,29 @@ const ALLOWED_COMMAND_PREFIXES = [
   // Read-only inspection
   "ls", "ps", "top", "htop", "cat", "grep", "tail", "head", "wc",
   "free", "df", "du", "netstat", "ss", "uptime", "whoami", "id",
-  "uname", "hostname", "date", "env",
+  "uname", "hostname", "date", "env", "pwd", "printenv",
+  "find", "which", "whereis", "stat", "file", "diff", "sort", "uniq",
+  "awk", "sed", "tr", "cut", "tee", "history", "nproc", "lscpu",
+  "lsof", "mount", "lsblk", "ip", "ifconfig", "dig", "nslookup",
+  "journalctl", "dmesg", "ping", "traceroute", "curl", "wget",
   // Docker (read + control)
   "docker ps", "docker logs", "docker stats", "docker inspect",
-  "docker restart", "docker stop", "docker start", "docker rm",
-  "docker images", "docker build", "docker run",
+  "docker info", "docker version", "docker images", "docker build",
+  "docker run", "docker restart", "docker stop", "docker start",
+  "docker rm", "docker top", "docker history", "docker diff",
+  "docker network", "docker volume", "docker exec",
+  "docker compose", "docker system", "docker events",
   // Git
   "git clone", "git pull", "git status", "git log", "git branch",
+  "git diff", "git show", "git remote",
   // Service control
   "systemctl status", "systemctl restart", "systemctl start", "systemctl stop",
   // Security scanners
   "rkhunter", "lynis",
   // Process control
   "kill", "pkill",
+  // Node.js / npm
+  "node", "npm", "npx",
   // Deployment actions
   "deploy",
 ];

@@ -24,7 +24,7 @@ export function KPICard({ label, value, unit, trend, icon, status = "info" }: Pr
     ok: "text-status-ok",
     warn: "text-status-warn",
     crit: "text-status-crit",
-    info: "text-gold-400",
+    info: "text-gold-700",
   }[status];
 
   return (

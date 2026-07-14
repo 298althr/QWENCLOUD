@@ -290,7 +290,7 @@ export default function RemotePage() {
     {
       key: "port",
       header: "Port",
-      render: (r) => <span className="font-mono text-gold-400">{r.port}</span>,
+      render: (r) => <span className="font-mono text-gold-700">{r.port}</span>,
     },
     { key: "process", header: "Process", render: (r) => r.process || "—" },
     { key: "protocol", header: "Protocol", render: (r) => r.protocol || "tcp" },
@@ -301,9 +301,9 @@ export default function RemotePage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Server className="h-6 w-6 text-gold-400" />
+          <Server className="h-6 w-6 text-gold-700" />
           <div>
-            <h1 className="text-xl font-semibold text-gold-400">Remote Servers</h1>
+            <h1 className="text-xl font-semibold text-gold-700">Remote Servers</h1>
             <p className="text-sm text-ink-500">SSH into managed servers and control containers, files, and processes.</p>
           </div>
         </div>
@@ -391,7 +391,7 @@ export default function RemotePage() {
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <CardTitle>Browser</CardTitle>
-                    <span className="font-mono text-xs text-gold-400">{filePath}</span>
+                    <span className="font-mono text-xs text-gold-700">{filePath}</span>
                     <Button variant="ghost" size="sm" className="ml-auto" onClick={() => loadFiles(".")}>
                       <Home className="h-3.5 w-3.5" />
                     </Button>
@@ -406,7 +406,7 @@ export default function RemotePage() {
                         className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-ink-800 transition-colors"
                       >
                         {e.type === "directory" ? (
-                          <FolderOpen className="h-4 w-4 text-gold-500" />
+                          <FolderOpen className="h-4 w-4 text-gold-700" />
                         ) : (
                           <FileText className="h-4 w-4 text-ink-500" />
                         )}
@@ -464,7 +464,7 @@ export default function RemotePage() {
                   {containers.map((c, i) => (
                     <Card key={i} className="p-4">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm text-gold-400">{c.name || c.id?.slice(0, 12)}</span>
+                        <span className="font-mono text-sm text-gold-700">{c.name || c.id?.slice(0, 12)}</span>
                         <Badge variant={c.status?.includes("Up") ? "success" : "critical"}>{c.status || "unknown"}</Badge>
                       </div>
                       {c.image && <p className="mt-2 text-xs text-ink-600">{c.image}</p>}
@@ -561,7 +561,7 @@ export default function RemotePage() {
           <DialogHeader>
             <DialogTitle className="capitalize">{containerAction} container?</DialogTitle>
             <DialogDescription>
-              This will {containerAction} <span className="font-mono text-gold-400">{selectedContainer?.name || selectedContainer?.id?.slice(0, 12)}</span> on the production host.
+              This will {containerAction} <span className="font-mono text-gold-700">{selectedContainer?.name || selectedContainer?.id?.slice(0, 12)}</span> on the production host.
               This action is audited and cannot be undone.
             </DialogDescription>
           </DialogHeader>

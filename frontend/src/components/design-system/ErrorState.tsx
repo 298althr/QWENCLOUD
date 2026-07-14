@@ -32,7 +32,7 @@ export function ErrorState({
           onClick={onRetry}
           variant="outline"
           size="sm"
-          className="mt-4 gap-2 border-ink-700 text-ink-200 hover:border-gold-500 hover:text-gold-400"
+          className="mt-4 gap-2 border-ink-700 text-ink-200 hover:border-gold-500 hover:text-gold-700"
         >
           <RefreshCw className="h-4 w-4" />
           Retry

@@ -12,7 +12,7 @@ import {
   Brain,
   TrendingUp,
   Settings,
-  BrainCog,
+  TerminalSquare,
   CheckCircle2,
 } from "lucide-react";
 import TopBar from "./TopBar";
@@ -29,7 +29,7 @@ import { GlobalAlertBanner } from "@/components/design-system";
 const COMMAND_ITEMS = [
   { label: "Go to Overview", icon: <LayoutDashboard className="h-4 w-4" />, onSelect: () => window.location.href = "/", group: "Navigation" },
   { label: "Go to Agent Console", icon: <Bot className="h-4 w-4" />, onSelect: () => window.location.href = "/agent", group: "Navigation" },
-  { label: "Go to Decision Intelligence", icon: <BrainCog className="h-4 w-4" />, onSelect: () => window.location.href = "/decisions", group: "Navigation" },
+  { label: "Go to Terminal", icon: <TerminalSquare className="h-4 w-4" />, onSelect: () => window.location.href = "/terminal", group: "Navigation" },
   { label: "Go to Monitoring", icon: <Activity className="h-4 w-4" />, onSelect: () => window.location.href = "/monitoring", group: "Navigation" },
   { label: "Go to Deployments", icon: <Rocket className="h-4 w-4" />, onSelect: () => window.location.href = "/deployments", group: "Navigation" },
   { label: "Go to Files", icon: <FolderOpen className="h-4 w-4" />, onSelect: () => window.location.href = "/files", group: "Navigation" },
@@ -46,8 +46,8 @@ const SHORTCUTS = [
   { keys: "Cmd / Ctrl + K", action: "Open command palette" },
   { keys: "G then O", action: "Go to Overview" },
   { keys: "G then A", action: "Go to Agent Console" },
+  { keys: "G then T", action: "Go to Terminal" },
   { keys: "G then M", action: "Go to Monitoring" },
-  { keys: "G then D", action: "Go to Decisions" },
   { keys: "G then S", action: "Go to Settings" },
   { keys: "?", action: "Show keyboard shortcuts" },
 ];
@@ -110,7 +110,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         clearTimeout(gTimer);
         gPressed = false;
         const map: Record<string, string> = {
-          o: "/", a: "/agent", d: "/decisions", m: "/monitoring",
+          o: "/", a: "/agent", t: "/terminal", m: "/monitoring",
           s: "/settings", f: "/files", c: "/security", l: "/memory",
           v: "/analytics", p: "/deployments",
         };
@@ -171,16 +171,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           onClick={() => setShortcutsOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-modal border border-ink-700 bg-ink-850 p-6 shadow-modal"
+            className="w-full max-w-md rounded-modal border border-ink-700/40 bg-ink-850 p-6 shadow-modal"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-title text-ink-100">Keyboard Shortcuts</h2>
             <p className="mt-1 text-body text-ink-500">Navigate ALTHR Autopilot without leaving your keyboard.</p>
             <div className="mt-4 space-y-2">
               {SHORTCUTS.map((shortcut) => (
-                <div key={shortcut.action} className="flex items-center justify-between rounded-lg bg-ink-900 px-3 py-2">
-                  <span className="text-sm text-ink-300">{shortcut.action}</span>
-                  <kbd className="rounded-input bg-ink-800 px-2 py-1 font-mono text-[11px] text-ink-300">
+                <div key={shortcut.action} className="flex items-center justify-between rounded-lg bg-ink-950 px-3 py-2">
+                  <span className="text-sm text-ink-400">{shortcut.action}</span>
+                  <kbd className="rounded-input bg-ink-800 px-2 py-1 font-mono text-[11px] text-ink-400">
                     {shortcut.keys}
                   </kbd>
                 </div>
@@ -189,7 +189,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="mt-5 flex justify-end">
               <button
                 onClick={() => setShortcutsOpen(false)}
-                className="rounded-input bg-gold-500 px-4 py-2 text-sm font-medium text-ink-1000 hover:bg-gold-400 transition-micro"
+                className="rounded-input bg-gold-500 px-4 py-2 text-sm font-medium text-white hover:bg-gold-600 transition-micro"
               >
                 Close
               </button>

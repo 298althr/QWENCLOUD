@@ -91,7 +91,7 @@ export function DataTable<T extends { id?: string | number }>({
                   {col.sortable !== false ? (
                     <button
                       onClick={() => toggleSort(col.key)}
-                      className="inline-flex items-center gap-1 hover:text-gold-400"
+                      className="inline-flex items-center gap-1 hover:text-gold-700"
                     >
                       {col.header}
                       {sortKey === col.key && (

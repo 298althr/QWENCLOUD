@@ -32,6 +32,7 @@ const CommandExecutor = require("../commands/command-executor");
 const { qwen, MODELS, selectModel } = require("../qwen/client");
 const { guardedCreate, getMaxOutputTokens } = require("../qwen/guardrails");
 const { FUNCTION_CALLING_PROMPT } = require("../qwen/prompts");
+const { addTerminalLog } = require("../utils/terminalLog");
 
 /**
  * @param {object} args
@@ -355,6 +356,19 @@ async function handleAgentMessage({ message, serverState = {}, user = { username
 
       for (const taskResult of execution.results) {
         results.push({ step: taskResult, result: taskResult.result });
+
+        // Log each AI-executed command to persistent terminal
+        const cmdName = taskResult.name || taskResult.taskName || "unknown";
+        const cmdResult = taskResult.result || {};
+        const cmdOutput = cmdResult.stdout || cmdResult.stderr || cmdResult.output || JSON.stringify(cmdResult).slice(0, 500);
+        const cmdExit = cmdResult.exit_code ?? cmdResult.exitCode ?? (cmdResult.success === false ? -1 : 0);
+        addTerminalLog({
+          command: `[AI] ${cmdName}`,
+          output: typeof cmdOutput === "string" ? cmdOutput : JSON.stringify(cmdOutput),
+          exitCode: cmdExit,
+          source: "ai",
+          io,
+        }).catch(() => {});
       }
 
       if (execution.status === 'completed') {

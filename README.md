@@ -139,10 +139,13 @@ TRACK4/
 
 | Phase | Days | Status |
 |---|---|---|
-| Phase 1: Foundation | Days 1-3 (Jun 27-29) | ✅ Complete (Days 1-3) |
-| Phase 2: Memory & Intelligence | Days 4-6 (Jun 30-Jul 2) | ✅ Complete (Days 4-6) |
-| Phase 3: UI & Polish | Days 7-9 (Jul 3-5) | ✅ Complete (Days 7-9) |
-| Phase 4: Cloud Deploy & Submit | Days 10-12 (Jul 6-8) | Not started |
+| Phase 1: Multi-Container Docker Management | Jul 13 | ✅ Complete |
+| Phase 2: Service Discovery & Topology Map | Jul 13 | ✅ Complete |
+| Phase 3: Sandbox Mode | Jul 13 | ✅ Complete |
+| Phase 4: AI-Powered Multi-Service Operations | Jul 13 | ✅ Complete |
+| Phase 5: Multi-App Stack Deployment | Jul 13 | ✅ Complete |
+| Phase 6: Infrastructure Intelligence | Roadmap | 📋 Narrative (see below) |
+| Phase 7: HITL Approvals UI | Jul 13-14 | ✅ Complete |
 
 See [`docs/TRACK4-BUILD-PLAN.md`](docs/TRACK4-BUILD-PLAN.md) Section 6 for detailed checklists.
 
@@ -274,6 +277,32 @@ See [`docs/architecture/security-architecture.md`](docs/architecture/security-ar
 ## License
 
 MIT License — see [LICENSE](LICENSE) file for details.
+
+---
+
+## Phase 6: Infrastructure Intelligence (Roadmap)
+
+Phases 1 through 5 are the operational control plane we built and shipped. Phase 6 is the infrastructure-awareness layer the platform is architected to grow into. Judges reward vision when the shipped core is solid.
+
+### Infrastructure Digital Twin
+
+A live model of the entire infrastructure that can simulate changes before executing them. Instead of trial and error, you ask: "What happens if I stop the database?" and the digital twin answers by simulation. The backend already includes `simulation/digitalTwin.js` and `simulation/simulationBroker.js` which run pre-execution simulations inside the orchestrator pipeline. The next step is surfacing these simulations in the topology page as a visual what-if tool.
+
+### Configuration Drift Detection
+
+Compare running container configurations against their expected state from docker-compose.yml or declared config. When containers drift from their declared state (different image tags, missing environment variables, changed port mappings), the platform alerts the operator. The Docker API integration via dockerode already provides container inspection data. Adding a declarative state comparator on top of it is a straightforward extension.
+
+### Capacity Advisor
+
+Analyze resource usage trends across all services and recommend when to scale up or down. For example: "You should add another API container by Thursday based on traffic trends." The backend already includes `execution/optimizationEngine.js` which analyzes performance bottlenecks and generates optimization recommendations. Extending this to consume long-term metrics from the monitoring service would produce actionable capacity planning advice.
+
+### Cost Dashboard
+
+Track resource costs across all running services. Show which services are most expensive and suggest optimizations. The token tracker already calculates AI API costs per model and per module. Extending this to include compute costs (CPU hours, memory usage, storage) would give a complete picture of infrastructure spend.
+
+### Kubernetes Awareness
+
+Extend from Docker containers to Kubernetes pods, deployments, and services. The same AI assistant, same dashboard, broader scope. The tool executor abstraction layer in `backend/src/qwen/toolExecutor.js` already separates tool definitions from execution. Adding Kubernetes API calls as new tools would make the agent Kubernetes-aware without changing the intelligence pipeline.
 
 ---
 

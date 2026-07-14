@@ -37,7 +37,7 @@ export const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 text-ink-600 hover:text-gold-400 transition-colors">
+      <DialogPrimitive.Close className="absolute right-4 top-4 text-ink-600 hover:text-gold-700 transition-colors">
         <X className="h-4 w-4" />
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -57,7 +57,7 @@ export const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold text-gold-400", className)} {...props} />
+  <DialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold text-gold-700", className)} {...props} />
 ));
 DialogTitle.displayName = "DialogTitle";
 

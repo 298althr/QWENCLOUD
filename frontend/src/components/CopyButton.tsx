@@ -26,7 +26,7 @@ export function CopyButton({ text, label }: Props) {
   return (
     <button
       onClick={copy}
-      className="inline-flex items-center gap-1 rounded p-1 text-ink-600 hover:text-gold-400 transition-colors"
+      className="inline-flex items-center gap-1 rounded p-1 text-ink-600 hover:text-gold-700 transition-colors"
       aria-label={`Copy ${label || "text"}`}
     >
       {copied ? <Check className="h-3 w-3 text-status-ok" /> : <Copy className="h-3 w-3" />}

@@ -6,6 +6,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.dev
 *.pem
 *.key
 
@@ -32,6 +33,7 @@ Thumbs.db
 
 # Docker volumes (local)
 docker/data/
+docker-compose.dev.yml
 
 # Local runtime data and internal docs
 SOS-volumes/

@@ -64,13 +64,13 @@ export default function MonitoringPage() {
   ];
 
   const portColumns: Column<any>[] = [
-    { key: "port", header: "Port", render: (r) => <span className="font-mono text-gold-400">{r.port || r.localPort}</span> },
+    { key: "port", header: "Port", render: (r) => <span className="font-mono text-gold-700">{r.port || r.localPort}</span> },
     { key: "process", header: "Process", render: (r) => r.process || r.processName || "—" },
     { key: "protocol", header: "Protocol", render: (r) => <span className="font-mono text-xs text-ink-500">{r.protocol || "tcp"}</span> },
   ];
 
   const containerColumns: Column<any>[] = [
-    { key: "name", header: "Container", render: (r) => <span className="font-mono text-sm text-gold-400">{r.name || r.id?.slice(0, 12)}</span> },
+    { key: "name", header: "Container", render: (r) => <span className="font-mono text-sm text-gold-700">{r.name || r.id?.slice(0, 12)}</span> },
     { key: "image", header: "Image", render: (r) => <span className="text-xs text-ink-500">{r.image || "—"}</span> },
     { key: "status", header: "Status", render: (r) => <Badge variant={r.status?.includes("Up") ? "success" : "critical"}>{r.status || "unknown"}</Badge> },
     { key: "ports", header: "Ports", render: (r) => <span className="font-mono text-xs text-ink-500">{r.ports || "—"}</span> },

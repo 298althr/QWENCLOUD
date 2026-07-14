@@ -9,11 +9,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-gradient-to-r from-gold-500 to-gold-600 text-ink-950 hover:from-gold-400 hover:to-gold-500",
+        default: "bg-gradient-to-r from-gold-500 to-gold-600 text-white hover:from-gold-600 hover:to-gold-700",
         destructive: "bg-status-crit/20 text-status-crit hover:bg-status-crit/30",
-        outline: "border border-ink-700 bg-transparent text-ink-200 hover:bg-ink-800 hover:text-gold-400",
-        ghost: "text-ink-500 hover:bg-ink-800 hover:text-gold-400",
-        link: "text-gold-400 underline-offset-4 hover:underline",
+        outline: "border border-ink-700 bg-transparent text-ink-200 hover:bg-ink-800 hover:text-gold-700",
+        ghost: "text-ink-500 hover:bg-ink-800 hover:text-gold-700",
+        link: "text-gold-700 underline-offset-4 hover:underline",
       },
       size: {
         sm: "h-8 px-3 text-xs",

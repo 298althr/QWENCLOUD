@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { sendAgentMessage, onReasoningStream, onResponseStream, onActionUpdate, onServerMetrics } from "@/lib/websocket";
+import { api } from "@/lib/api";
 import { useAgentStore } from "@/stores/agent-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,33 +61,86 @@ export default function AgentConsole() {
   const [activeTab, setActiveTab] = useState<"stream" | "history">("stream");
   const [actions, setActions] = useState<any[]>([]);
   const [isListening, setIsListening] = useState(false);
+  const isListeningRef = useRef(false);
   const { isProcessing, approvals, setProcessing, clearConsole } = useAgentStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Load chat history from localStorage and backend on mount
+  useEffect(() => {
+    // First load from localStorage for instant display
+    try {
+      const saved = localStorage.getItem("althr_chat_history");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setHistory(parsed.slice(-50));
+        }
+      }
+    } catch {}
+
+    // Then fetch from backend for persistent server-side history
+    api.getChatHistory(25).then((data) => {
+      if (data.messages && data.messages.length > 0) {
+        setHistory((prev) => {
+          // Merge: use backend messages if we have more than localStorage
+          // or if localStorage was empty
+          if (data.messages.length >= prev.length) {
+            return data.messages.slice(-50);
+          }
+          return prev;
+        });
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Save chat history to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("althr_chat_history", JSON.stringify(history.slice(-50)));
+    } catch {}
+  }, [history]);
+
   useEffect(() => {
     const off1 = onReasoningStream((d) => {
-      if (!isListening) return;
+      if (!isListeningRef.current) return;
       setThinkingText((prev) => prev + d.chunk);
       setIsThinking(true);
     });
     const off2 = onResponseStream((d) => {
-      if (!isListening) return;
+      if (!isListeningRef.current) return;
       setResponseText((prev) => prev + d.chunk);
       setIsThinking(false);
     });
     const off3 = onActionUpdate((d) => {
-      if (!isListening) return;
+      if (!isListeningRef.current) return;
       setActions((prev) => [...prev.slice(-50), { ...d, timestamp: Date.now() }]);
-      if (d.stage === "diagnosis_complete" || d.stage === "complete" || d.stage === "error" || d.stage === "remediated") {
+      // Check for completion: either a known completion stage OR any event with complete: true
+      const completionStages = ["diagnosis_complete", "complete", "error", "remediated", "context_engine", "clarification", "blocked", "blocked_saf", "blocked_crds_veto", "blocked_escalate"];
+      if (completionStages.includes(d.stage) || d.complete === true) {
         setProcessing(false);
         setIsThinking(false);
         setIsListening(false);
+        isListeningRef.current = false;
+        // Save the agent response to history
+        setResponseText((currentResponse) => {
+          if (currentResponse && currentResponse.trim().length > 0) {
+            setHistory((prev) => {
+              // Avoid duplicating the last agent response
+              const lastEntry = prev[prev.length - 1];
+              if (lastEntry && lastEntry.role === "agent" && lastEntry.text === currentResponse) {
+                return prev;
+              }
+              return [...prev, { id: `a-${Date.now()}`, role: "agent" as const, text: currentResponse, timestamp: Date.now() }];
+            });
+          }
+          return currentResponse;
+        });
       }
     });
     const off4 = onServerMetrics((m) => setMetrics({ cpu: m.cpu, ram: m.ram, disk: m.disk }));
     return () => { off1(); off2(); off3(); off4(); };
-  }, [isListening, setProcessing]);
+  }, [setProcessing]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -110,11 +164,33 @@ export default function AgentConsole() {
     setShowThinking(false);
     setIsThinking(true);
     setIsListening(true);
+    isListeningRef.current = true;
     clearConsole();
-    setHistory((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text: message, timestamp: Date.now() }]);
+    setHistory((prev) => [...prev, { id: `u-${Date.now()}`, role: "user" as const, text: message, timestamp: Date.now() }]);
     sendAgentMessage(message);
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+    // Safety timeout: if no completion event arrives in 60s, reset processing state
+    setTimeout(() => {
+      if (isListeningRef.current) {
+        console.warn("[agent] Safety timeout: no completion event received in 60s, resetting state");
+        setProcessing(false);
+        setIsThinking(false);
+        setIsListening(false);
+        isListeningRef.current = false;
+        setResponseText((cur) => {
+          if (cur && cur.trim().length > 0) {
+            setHistory((prev) => {
+              const lastEntry = prev[prev.length - 1];
+              if (lastEntry && lastEntry.role === "agent" && lastEntry.text === cur) return prev;
+              return [...prev, { id: `a-${Date.now()}`, role: "agent" as const, text: cur, timestamp: Date.now() }];
+            });
+          }
+          return cur;
+        });
+      }
+    }, 60000);
   };
 
   const hasThinking = thinkingText.length > 0;
@@ -161,7 +237,7 @@ export default function AgentConsole() {
                   className="w-full text-left rounded-lg p-2 text-sm text-ink-400 hover:bg-ink-800 hover:text-ink-200 transition-micro"
                 >
                   <div className="flex items-center gap-2">
-                    {h.role === "user" ? <MessageSquare className="h-3.5 w-3.5 text-gold-400" /> : <Sparkles className="h-3.5 w-3.5 text-status-ai" />}
+                    {h.role === "user" ? <MessageSquare className="h-3.5 w-3.5 text-gold-700" /> : <Sparkles className="h-3.5 w-3.5 text-status-ai" />}
                     <span className="truncate">{h.text}</span>
                   </div>
                   <div className="mt-1 text-[10px] text-ink-600">{formatRelativeTime(h.timestamp)}</div>
@@ -182,13 +258,13 @@ export default function AgentConsole() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab("stream")}
-                className={cn("rounded-md px-2 py-1 text-xs transition-micro", activeTab === "stream" ? "bg-ink-800 text-gold-400" : "text-ink-500 hover:text-ink-300")}
+                className={cn("rounded-md px-2 py-1 text-xs transition-micro", activeTab === "stream" ? "bg-ink-800 text-gold-700" : "text-ink-500 hover:text-ink-300")}
               >
                 Stream
               </button>
               <button
                 onClick={() => setActiveTab("history")}
-                className={cn("rounded-md px-2 py-1 text-xs transition-micro lg:hidden", activeTab === "history" ? "bg-ink-800 text-gold-400" : "text-ink-500 hover:text-ink-300")}
+                className={cn("rounded-md px-2 py-1 text-xs transition-micro lg:hidden", activeTab === "history" ? "bg-ink-800 text-gold-700" : "text-ink-500 hover:text-ink-300")}
               >
                 History
               </button>
@@ -199,6 +275,7 @@ export default function AgentConsole() {
                   setResponseText("");
                   setActions([]);
                   setIsListening(false);
+                  isListeningRef.current = false;
                   setIsThinking(false);
                 }}
                 className="rounded-md p-1 text-ink-500 hover:text-ink-200 transition-micro"
@@ -214,7 +291,7 @@ export default function AgentConsole() {
               <div className="space-y-1 lg:hidden">
                 {historyList.map((h) => (
                   <div key={h.id} className="rounded-lg border border-ink-800 p-3 text-sm">
-                    <div className={cn("font-medium", h.role === "user" ? "text-gold-400" : "text-status-ai")}>
+                    <div className={cn("font-medium", h.role === "user" ? "text-gold-700" : "text-status-ai")}>
                       {h.role === "user" ? "You" : "Agent"}
                     </div>
                     <div className="mt-1 text-ink-300 whitespace-pre-wrap">{h.text}</div>
@@ -228,7 +305,7 @@ export default function AgentConsole() {
                   <div className="space-y-4">
                     <div className="rounded-lg border border-ink-800 bg-ink-900/50 p-4 text-sm text-ink-500">
                       <div className="flex items-center gap-2 mb-2">
-                        <Lightbulb className="h-4 w-4 text-gold-400" />
+                        <Lightbulb className="h-4 w-4 text-gold-700" />
                         <span className="font-medium text-ink-300">Suggested commands</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -236,7 +313,7 @@ export default function AgentConsole() {
                           <button
                             key={s}
                             onClick={() => send(s)}
-                            className="rounded-full border border-ink-700 bg-ink-950 px-3 py-1 text-xs text-ink-400 hover:border-gold-500 hover:text-gold-400 transition-micro"
+                            className="rounded-full border border-ink-700 bg-ink-950 px-3 py-1 text-xs text-ink-400 hover:border-gold-500 hover:text-gold-700 transition-micro"
                           >
                             {s}
                           </button>
@@ -259,7 +336,7 @@ export default function AgentConsole() {
                       ) : (
                         <ChevronRight className="h-4 w-4 text-ink-600 shrink-0" />
                       )}
-                      <Brain className={cn("h-4 w-4 shrink-0", isThinking ? "text-gold-400 animate-pulse" : "text-ink-600")} />
+                      <Brain className={cn("h-4 w-4 shrink-0", isThinking ? "text-gold-700 animate-pulse" : "text-ink-600")} />
                       <span className="text-xs font-medium text-ink-400">
                         {isThinking ? "Thinking..." : "Thought process"}
                       </span>
@@ -303,8 +380,8 @@ export default function AgentConsole() {
                 {hasResponse && (
                   <div className="rounded-lg border border-gold-700/30 bg-gold-900/10 p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="h-4 w-4 text-gold-400" />
-                      <span className="text-xs uppercase tracking-wider text-gold-500 font-medium">Response</span>
+                      <Sparkles className="h-4 w-4 text-gold-700" />
+                      <span className="text-xs uppercase tracking-wider text-gold-700 font-medium">Response</span>
                     </div>
                     <div className="text-sm text-gold-200">
                       <ReactMarkdown
@@ -316,7 +393,7 @@ export default function AgentConsole() {
                                 {String(children).replace(/\n$/, "")}
                               </SyntaxHighlighter>
                             ) : (
-                              <code className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-xs text-gold-400" {...props}>{children}</code>
+                              <code className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-xs text-gold-700" {...props}>{children}</code>
                             );
                           },
                         }}
@@ -355,7 +432,7 @@ export default function AgentConsole() {
           <div className="space-y-4">
             {isProcessing ? (
               <div className="flex items-center gap-2 text-sm text-ink-400">
-                <Loader2 className="h-4 w-4 animate-spin text-gold-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-gold-700" />
                 Processing request...
               </div>
             ) : (
@@ -405,7 +482,7 @@ export default function AgentConsole() {
               <button
                 key={s}
                 onClick={() => send(s)}
-                className="rounded-full border border-ink-700 bg-ink-950 px-3 py-1 text-xs text-ink-400 hover:border-gold-500 hover:text-gold-400 transition-micro"
+                className="rounded-full border border-ink-700 bg-ink-950 px-3 py-1 text-xs text-ink-400 hover:border-gold-500 hover:text-gold-700 transition-micro"
               >
                 {s}
               </button>

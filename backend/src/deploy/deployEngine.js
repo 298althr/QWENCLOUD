@@ -383,4 +383,172 @@ async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
   return result;
 }
 
-module.exports = { deployFromRepo, detectStack, auditDeploymentFiles };
+const STACK_ROOT = "/tmp/althr-stacks";
+const deploymentHistory = new Map();
+
+async function deployStack({ compose_content, compose_url, name }) {
+  const stackName = (name || `stack-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
+  const stackDir = path.join(STACK_ROOT, stackName);
+  fs.mkdirSync(STACK_ROOT, { recursive: true });
+  fs.mkdirSync(stackDir, { recursive: true });
+
+  let composeFile = "";
+  if (compose_url) {
+    try {
+      const resp = await fetch(compose_url);
+      composeFile = await resp.text();
+    } catch (e) {
+      return { success: false, stage: "fetch", error: `Failed to fetch compose file: ${e.message}` };
+    }
+  } else if (compose_content) {
+    composeFile = compose_content;
+  } else {
+    return { success: false, stage: "validation", error: "Either compose_content or compose_url is required" };
+  }
+
+  const composePath = path.join(stackDir, "docker-compose.yml");
+  fs.writeFileSync(composePath, composeFile);
+
+  const upResult = await executeTool("execute_command", {
+    command: `docker compose -f ${composePath} up -d`,
+    timeout: 120000,
+  });
+
+  if (upResult.exit_code !== 0) {
+    return { success: false, stage: "compose_up", error: upResult.stderr || upResult.stdout, stackName, stackDir };
+  }
+
+  const psResult = await executeTool("execute_command", {
+    command: `docker compose -f ${composePath} ps --format json`,
+    timeout: 10000,
+  });
+
+  let services = [];
+  try {
+    if (psResult.stdout) {
+      const lines = psResult.stdout.trim().split("\n").filter(Boolean);
+      services = lines.map((line) => {
+        const obj = JSON.parse(line);
+        return {
+          name: obj.Name || obj.name || obj.Service,
+          service: obj.Service || obj.service,
+          state: obj.State || obj.state || "running",
+          ports: obj.Ports || obj.ports || "",
+          image: obj.Image || obj.image,
+        };
+      });
+    }
+  } catch (e) {
+    console.warn("[deploy] Failed to parse compose ps:", e.message);
+  }
+
+  const result = {
+    success: true,
+    stackName,
+    stackDir,
+    composePath,
+    services,
+    serviceCount: services.length,
+    output: upResult.stdout,
+  };
+
+  deploymentHistory.set(stackName, {
+    stackName,
+    stackDir,
+    composePath,
+    services,
+    deployedAt: new Date().toISOString(),
+    imageTags: services.map((s) => s.image).filter(Boolean),
+  });
+
+  try {
+    const memActionId = `stack_deploy_${Date.now().toString(36)}`;
+    await store("M4", `Deployed stack ${stackName} with ${services.length} services`, {
+      action_id: memActionId,
+      action_type: "stack_deploy",
+      action_detail: JSON.stringify({ stackName, services: services.map((s) => s.name) }),
+      result: "success",
+      saf_passed: true,
+      human_approved: false,
+    });
+  } catch (e) {
+    console.warn("[deploy] memory store failed:", e.message);
+  }
+
+  return result;
+}
+
+async function rollbackDeployment(deploymentId) {
+  const entry = deploymentHistory.get(deploymentId);
+  if (!entry) {
+    return { success: false, error: `Deployment "${deploymentId}" not found in history` };
+  }
+
+  const downResult = await executeTool("execute_command", {
+    command: `docker compose -f ${entry.composePath} down`,
+    timeout: 60000,
+  });
+
+  if (downResult.exit_code !== 0) {
+    return { success: false, stage: "compose_down", error: downResult.stderr || downResult.stdout };
+  }
+
+  const upResult = await executeTool("execute_command", {
+    command: `docker compose -f ${entry.composePath} up -d`,
+    timeout: 120000,
+  });
+
+  if (upResult.exit_code !== 0) {
+    return { success: false, stage: "compose_up_rollback", error: upResult.stderr || upResult.stdout };
+  }
+
+  return {
+    success: true,
+    deploymentId,
+    message: `Rolled back ${deploymentId}. All services restarted.`,
+    output: upResult.stdout,
+  };
+}
+
+async function getDeploymentContainers() {
+  const { listAllContainers } = require("../utils/docker");
+  const containers = await listAllContainers(false);
+  const deployed = containers.filter((c) =>
+    c.name.startsWith("althr-") ||
+    (c.labels && (c.labels["com.docker.compose.project"] || c.labels["com.docker.compose.service"]))
+  );
+
+  const grouped = {};
+  for (const c of deployed) {
+    const project = (c.labels && c.labels["com.docker.compose.project"]) || "standalone";
+    if (!grouped[project]) {
+      grouped[project] = {
+        name: project,
+        containers: [],
+        status: "running",
+        running: 0,
+        total: 0,
+      };
+    }
+    grouped[project].containers.push({
+      id: c.id,
+      name: c.name,
+      image: c.image,
+      state: c.state,
+      ports: c.ports,
+      service: (c.labels && c.labels["com.docker.compose.service"]) || c.name,
+    });
+    grouped[project].total++;
+    if (c.state === "running") grouped[project].running++;
+    if (c.state !== "running") grouped[project].status = "degraded";
+  }
+
+  const apps = Object.values(grouped);
+  for (const app of apps) {
+    if (app.running === 0) app.status = "stopped";
+  }
+
+  return { apps, count: apps.length };
+}
+
+module.exports = { deployFromRepo, deployStack, rollbackDeployment, getDeploymentContainers, detectStack, auditDeploymentFiles };

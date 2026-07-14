@@ -31,7 +31,7 @@ export function QuickActions({ actions, className, title }: QuickActionsProps) {
               variant={action.variant || "outline"}
               size="sm"
               onClick={action.onClick}
-              className="btn-press gap-2 border-ink-700 bg-ink-900 text-ink-300 hover:border-gold-500 hover:text-gold-400"
+              className="btn-press gap-2 border-ink-700 bg-ink-900 text-ink-300 hover:border-gold-500 hover:text-gold-700"
             >
               <Icon className="h-4 w-4" />
               {action.label}

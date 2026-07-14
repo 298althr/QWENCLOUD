@@ -55,7 +55,7 @@ export function CommandPalette({ open, onOpenChange, items }: Props) {
                       onOpenChange(false);
                     }}
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-ink-300 aria-selected:bg-ink-800 aria-selected:text-gold-400"
+                      "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-ink-300 aria-selected:bg-ink-800 aria-selected:text-gold-700"
                     )}
                   >
                     {item.icon}

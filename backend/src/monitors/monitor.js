@@ -25,6 +25,10 @@ const { runCertaintyPipeline } = require("../pipeline/certainty");
 const { safCheck } = require("../pipeline/saf");
 const { executeTool } = require("../qwen/toolExecutor");
 const { audit } = require("../utils/audit");
+const tokenTracker = require("../qwen/tokenTracker");
+const { addTerminalLog } = require("../utils/terminalLog");
+const { buildTopology, getImpactAnalysis } = require("../utils/topology");
+const { listAllContainers, getParsedStats } = require("../utils/docker");
 
 // Anomaly thresholds (configurable via env)
 const THRESHOLDS = {
@@ -73,10 +77,21 @@ function stop() {
  * Single monitoring tick: collect metrics, detect anomalies, trigger diagnosis.
  */
 async function tick() {
+  // Kill switch: skip all anomaly handling if AI is halted
+  const killSwitchActive = tokenTracker.isKillSwitchActive();
+
   const metrics = await collectMetrics();
   const anomalies = detectAnomalies(metrics);
 
   for (const anomaly of anomalies) {
+    if (killSwitchActive) {
+      // Log the anomaly but do not call Qwen or execute remediation
+      console.log(`[monitor] Anomaly: ${anomaly.type} — ${anomaly.message} (kill switch active, skipping)`);
+      if (state.io) {
+        state.io.emit("anomaly_alert", { id: `anom_${uuidv4().slice(0, 8)}`, ...anomaly, timestamp: new Date().toISOString(), killSwitchActive: true });
+      }
+      continue;
+    }
     await handleAnomaly(anomaly, metrics);
   }
 
@@ -179,11 +194,13 @@ function detectAnomalies(metrics) {
  * Handle a detected anomaly: store M1, check M3 for known SOP, trigger
 // Qwen diagnosis if needed, stream reasoning, route through pipeline.
  */
-async function handleAnomaly(anomaly, metrics) {
+async function handleAnomaly(anomaly, metrics, opts = {}) {
+  const { skipCooldown = false, io: overrideIo = null } = opts;
+  const emitIo = overrideIo || state.io;
   const anomalyId = `anom_${uuidv4().slice(0, 8)}`;
   const now = Date.now();
   const lastHandled = state.anomalyCooldowns.get(anomaly.type);
-  const inCooldown = lastHandled && now - lastHandled < ANOMALY_COOLDOWN_MS;
+  const inCooldown = !skipCooldown && lastHandled && now - lastHandled < ANOMALY_COOLDOWN_MS;
 
   // 1. Store in M1 (Raw Event)
   await memory.store("M1", anomaly.message, {
@@ -193,11 +210,23 @@ async function handleAnomaly(anomaly, metrics) {
   });
 
   // 2. Emit alert to dashboard
-  if (state.io) {
-    state.io.emit("anomaly_alert", { id: anomalyId, ...anomaly, timestamp: new Date().toISOString(), inCooldown });
+  if (emitIo) {
+    emitIo.emit("anomaly_alert", { id: anomalyId, ...anomaly, timestamp: new Date().toISOString(), inCooldown });
   }
 
   console.log(`[monitor] Anomaly: ${anomaly.type} — ${anomaly.message}${inCooldown ? " (cooldown, skipping Qwen)" : ""}`);
+
+  // Emit action_update so the activity feed picks it up
+  if (emitIo) {
+    emitIo.emit("action_update", {
+      anomalyId,
+      stage: "anomaly_detected",
+      action: anomaly.type,
+      message: anomaly.message,
+      severity: anomaly.severity,
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   if (inCooldown) {
     return;
@@ -207,24 +236,24 @@ async function handleAnomaly(anomaly, metrics) {
   const { found, sop } = await lookupSOP(anomaly.type);
   if (found) {
     console.log(`[monitor] Known SOP found: ${sop.sop_name} (success_count=${sop.success_count})`);
-    if (state.io) {
-      state.io.emit("sop_match", { anomalyId, sop: { name: sop.sop_name, steps: sop.steps_json, successCount: sop.success_count } });
+    if (emitIo) {
+      emitIo.emit("sop_match", { anomalyId, sop: { name: sop.sop_name, steps: sop.steps_json, successCount: sop.success_count } });
     }
     // Apply the known fix directly (still goes through SAF)
     state.anomalyCooldowns.set(anomaly.type, now);
-    await applyKnownSOP(anomalyId, anomaly, sop, metrics);
+    await applyKnownSOP(anomalyId, anomaly, sop, metrics, emitIo);
     return;
   }
 
   // 4. No known SOP → trigger Qwen diagnosis with thinking + streaming
   state.anomalyCooldowns.set(anomaly.type, now);
-  await diagnoseWithQwen(anomalyId, anomaly, metrics);
+  await diagnoseWithQwen(anomalyId, anomaly, metrics, emitIo);
 }
 
 /**
  * Apply a known SOP from M3 (faster path — skips Qwen diagnosis).
  */
-async function applyKnownSOP(anomalyId, anomaly, sop, metrics) {
+async function applyKnownSOP(anomalyId, anomaly, sop, metrics, emitIo) {
   const steps = Array.isArray(sop.steps_json) ? sop.steps_json : [];
   const remediationStep = steps.find((s) => /apply|remediat|kill|restart/i.test(s.action || "")) || steps[steps.length - 1];
   const action = remediationStep?.detail || remediationStep?.action || "apply known fix";
@@ -239,7 +268,16 @@ async function applyKnownSOP(anomalyId, anomaly, sop, metrics) {
 
   // Execute
   const result = await executeTool("execute_command", { command: action, timeout: 10000 });
-  if (state.io) state.io.emit("action_update", { anomalyId, stage: "sop_applied", action, result });
+  if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "sop_applied", action, result });
+
+  // Log to persistent terminal
+  addTerminalLog({
+    command: `[AI-SOP] ${action}`,
+    output: result.stdout || result.stderr || `exit code: ${result.exit_code}`,
+    exitCode: result.exit_code,
+    source: "ai",
+    io: emitIo,
+  }).catch(() => {});
 
   await audit({ operation: "execute", actor: "agent", target: action, target_type: "command", reasoning: `Auto-applied SOP: ${sop.sop_name}`, safResult: saf, result: result.exit_code === 0 ? "success" : "failure" });
 }
@@ -247,8 +285,8 @@ async function applyKnownSOP(anomalyId, anomaly, sop, metrics) {
 /**
  * Diagnose an anomaly with Qwen thinking mode + streaming.
  */
-async function diagnoseWithQwen(anomalyId, anomaly, metrics) {
-  if (state.io) state.io.emit("action_update", { anomalyId, stage: "diagnosing" });
+async function diagnoseWithQwen(anomalyId, anomaly, metrics, emitIo) {
+  if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "diagnosing" });
 
   const userMessage = `Anomaly detected: ${anomaly.type} — ${anomaly.message}. Current metrics: CPU=${metrics.cpu}%, RAM=${metrics.ram}%, Disk=${metrics.disk}%. Diagnose the root cause and propose a remediation action.`;
 
@@ -257,14 +295,14 @@ async function diagnoseWithQwen(anomalyId, anomaly, metrics) {
       userMessage,
       serverState: metrics,
       onChunk: (evt) => {
-        if (state.io) {
-          state.io.emit(evt.type === "reasoning" ? "reasoning_stream" : "response_stream", { anomalyId, chunk: evt.chunk });
+        if (emitIo) {
+          emitIo.emit(evt.type === "reasoning" ? "reasoning_stream" : "response_stream", { anomalyId, chunk: evt.chunk });
         }
       },
     });
 
-    if (state.io) {
-      state.io.emit("action_update", {
+    if (emitIo) {
+      emitIo.emit("action_update", {
         anomalyId,
         stage: "diagnosis_complete",
         confidence: pipeline.confidence,
@@ -279,16 +317,147 @@ async function diagnoseWithQwen(anomalyId, anomaly, metrics) {
       const saf = await safCheck(pipeline.action, anomaly.type, pipeline.risk_level, { username: "agent", role: "admin" }, pipeline.confidence, false);
       if (saf.passed) {
         const result = await executeTool("execute_command", { command: pipeline.action, timeout: 15000 });
-        if (state.io) state.io.emit("action_update", { anomalyId, stage: "remediated", result });
+        if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "remediated", result });
+
+        // Log AI command to persistent terminal
+        addTerminalLog({
+          command: `[AI] ${pipeline.action}`,
+          output: result.stdout || result.stderr || `exit code: ${result.exit_code}`,
+          exitCode: result.exit_code,
+          source: "ai",
+          io: emitIo,
+        }).catch(() => {});
+
         await audit({ operation: "execute", actor: "agent", target: pipeline.action, target_type: "command", reasoning: pipeline.reasoning, confidence: pipeline.confidence, safResult: saf, result: result.exit_code === 0 ? "success" : "failure" });
       }
-    } else if (state.io) {
-      state.io.emit("approval_needed", { anomalyId, action: pipeline.action, confidence: pipeline.confidence, risk_level: pipeline.risk_level });
+    } else if (emitIo) {
+      emitIo.emit("approval_needed", { anomalyId, action: pipeline.action, confidence: pipeline.confidence, risk_level: pipeline.risk_level });
     }
   } catch (e) {
     console.error(`[monitor] Diagnosis failed for ${anomalyId}:`, e.message);
-    if (state.io) state.io.emit("action_update", { anomalyId, stage: "error", error: e.message });
+    if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "error", error: e.message });
   }
 }
 
-module.exports = { start, stop, tick, collectMetrics, detectAnomalies, handleAnomaly, THRESHOLDS };
+/**
+ * Check dependent services for cascading effects when an anomaly is detected.
+ * Uses the topology graph from Phase 2 to find which services depend on the
+ * affected service and checks their health.
+ */
+async function checkCascadeEffects(anomaly, emitIo) {
+  try {
+    const topology = await buildTopology();
+    const containers = await listAllContainers(false);
+
+    // Find the container that matches the anomaly context (if any)
+    // For host-level anomalies (cpu/ram/disk), check all containers
+    const affectedNodes = containers.filter((c) => c.state === "running");
+    const cascadeResults = [];
+
+    for (const container of affectedNodes) {
+      const impact = await getImpactAnalysis(container.id);
+      if (impact.impactedCount > 0) {
+        // Check health of each impacted container
+        for (const impacted of impact.impacted) {
+          try {
+            const stats = await getParsedStats(impacted.id);
+            const cpuPercent = stats.cpuPercent || 0;
+            const memPercent = stats.memPercent || 0;
+            const unhealthy = cpuPercent > THRESHOLDS.CPU_PERCENT || memPercent > THRESHOLDS.RAM_PERCENT;
+
+            cascadeResults.push({
+              sourceContainer: container.name,
+              impactedContainer: impacted.name,
+              impactedService: impacted.service,
+              cpuPercent: Number(cpuPercent.toFixed(2)),
+              memoryPercent: Number(memPercent.toFixed(2)),
+              unhealthy,
+            });
+
+            if (unhealthy && emitIo) {
+              emitIo.emit("cascade_alert", {
+                source: container.name,
+                impacted: impacted.name,
+                service: impacted.service,
+                cpu: cpuPercent,
+                memory: memPercent,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          } catch (e) {
+            // Stats may fail for stopped containers
+          }
+        }
+      }
+    }
+
+    return cascadeResults;
+  } catch (e) {
+    console.warn("[monitor] Cascade check failed:", e.message);
+    return [];
+  }
+}
+
+/**
+ * Aggregate service health across all running containers.
+ * Returns per-service health status: green (all healthy), amber (degraded), red (down).
+ */
+async function getServiceHealth() {
+  try {
+    const topology = await buildTopology();
+    const services = [];
+
+    for (const [serviceName, group] of Object.entries(topology.services)) {
+      const containerHealths = [];
+      for (const container of group.containers) {
+        try {
+          const stats = await getParsedStats(container.id);
+          containerHealths.push({
+            name: container.name,
+            state: container.state,
+            cpuPercent: stats.cpuPercent || 0,
+            memoryPercent: stats.memPercent || 0,
+            memoryUsedMB: stats.memUsageMB || 0,
+          });
+        } catch (e) {
+          containerHealths.push({
+            name: container.name,
+            state: container.state,
+            cpuPercent: 0,
+            memoryPercent: 0,
+            memoryUsedMB: 0,
+          });
+        }
+      }
+
+      const running = containerHealths.filter((c) => c.state === "running").length;
+      const total = containerHealths.length;
+      const anyUnhealthy = containerHealths.some(
+        (c) => c.cpuPercent > THRESHOLDS.CPU_PERCENT || c.memoryPercent > THRESHOLDS.RAM_PERCENT
+      );
+
+      let status = "green";
+      if (running === 0) status = "red";
+      else if (anyUnhealthy || running < total) status = "amber";
+
+      services.push({
+        name: serviceName,
+        image: group.image,
+        status,
+        running,
+        total,
+        containers: containerHealths,
+      });
+    }
+
+    const allGreen = services.every((s) => s.status === "green");
+    const anyRed = services.some((s) => s.status === "red");
+    const overall = anyRed ? "red" : allGreen ? "green" : "amber";
+
+    return { overall, services, timestamp: new Date().toISOString() };
+  } catch (e) {
+    return { overall: "unknown", services: [], error: e.message, timestamp: new Date().toISOString() };
+  }
+}
+
+module.exports = { start, stop, tick, collectMetrics, detectAnomalies, handleAnomaly, checkCascadeEffects, getServiceHealth, THRESHOLDS };

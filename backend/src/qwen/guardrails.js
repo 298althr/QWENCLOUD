@@ -220,6 +220,12 @@ async function guardedCreate(openaiClient, params, opts = {}) {
   const moduleName = opts.module || "unknown";
   const taskType = opts.taskType || "default";
 
+  // 0. Kill switch check — blocks all Qwen calls if tripped
+  if (tokenTracker.isKillSwitchActive()) {
+    const status = tokenTracker.getKillSwitchStatus();
+    throw new Error(`[guardrails] AI kill switch active: ${status.reason}. Reset via /api/settings/kill-switch.`);
+  }
+
   // 1. Check cache for identical prompts
   const userMessage = params.messages?.find(m => m.role === 'user')?.content || '';
   const systemMessage = params.messages?.find(m => m.role === 'system')?.content || '';
@@ -233,7 +239,7 @@ async function guardedCreate(openaiClient, params, opts = {}) {
   // 2. Optimize prompt for token efficiency (skip for tasks requiring full context
   // or structured JSON schema compliance).
   const tasksRequiringFullContext = ['ai-command-execution', 'complex', 'diagnosis', 'planning', 'confidence', 'dre', 'drev', 'intent'];
-  const modulesRequiringFullContext = ['ai-command-execution', 'confidence-dqs', 'confidence-score', 'dre', 'drev'];
+  const modulesRequiringFullContext = ['ai-command-execution', 'confidence-dqs', 'confidence-score', 'dre', 'drev', 'command-explain'];
   const useOptimization = !tasksRequiringFullContext.includes(taskType) && !modulesRequiringFullContext.includes(moduleName);
   
   let messagesToUse = params.messages;

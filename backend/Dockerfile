@@ -3,8 +3,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install Docker CLI (needed for /api/docker/containers and docker_build tool)
-RUN apk add --no-cache docker-cli git
+# Install Docker CLI and Compose plugin (needed for container management and stack deployment)
+RUN apk add --no-cache docker-cli docker-cli-compose git
 
 # Install dependencies
 COPY package*.json ./

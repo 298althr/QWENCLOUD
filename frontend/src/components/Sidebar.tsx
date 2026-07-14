@@ -13,12 +13,15 @@ import {
   Brain,
   TrendingUp,
   Settings,
-  BrainCog,
+  TerminalSquare,
   PanelLeft,
   Wifi,
   WifiOff,
   Loader2,
   Server,
+  Container,
+  Network,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -28,7 +31,7 @@ const GROUPS = [
   {
     label: "Core",
     items: [
-      { href: "/", label: "Command Center", icon: LayoutDashboard },
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/agent", label: "AI Assistant", icon: Bot },
     ],
   },
@@ -36,7 +39,9 @@ const GROUPS = [
     label: "Operations",
     items: [
       { href: "/monitoring", label: "Live Metrics", icon: Activity },
-      { href: "/decisions", label: "Decision Engine", icon: BrainCog },
+      { href: "/terminal", label: "Terminal", icon: TerminalSquare },
+      { href: "/containers", label: "Containers", icon: Container },
+      { href: "/topology", label: "Topology", icon: Network },
       { href: "/deployments", label: "Deploy", icon: Rocket },
       { href: "/files", label: "Files", icon: FolderOpen },
       { href: "/remote", label: "Remote Servers", icon: Server },
@@ -45,6 +50,7 @@ const GROUPS = [
   {
     label: "Governance",
     items: [
+      { href: "/approvals", label: "Approvals", icon: ClipboardCheck },
       { href: "/security", label: "Safety & Audit", icon: ShieldCheck },
       { href: "/memory", label: "Memory", icon: Brain },
       { href: "/analytics", label: "Performance", icon: TrendingUp },
@@ -74,16 +80,16 @@ export default function Sidebar({ collapsed, onToggle, mobile = false }: Sidebar
   return (
     <aside
       className={cn(
-        "sticky top-0 z-20 flex h-screen shrink-0 flex-col border-r border-ink-800 bg-ink-900 transition-all duration-300",
+        "sticky top-0 z-20 flex h-screen shrink-0 flex-col border-r border-ink-700/40 bg-ink-900 transition-all duration-300",
         collapsed && !mobile ? "w-16" : "w-60"
       )}
     >
       {/* Header */}
-      <div className="flex h-14 items-center gap-2 border-b border-ink-800 px-4">
-        <div className="h-8 w-8 shrink-0 rounded-md bg-gradient-to-br from-gold-400 to-gold-600 shadow-glow" />
+      <div className="flex h-14 items-center gap-2 border-b border-ink-700/40 px-4">
+        <div className="h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br from-gold-400 to-gold-600 shadow-glow" />
         {!collapsed && (
           <div className="leading-tight">
-            <div className="text-sm font-semibold tracking-wide text-gold-400">ALTHR</div>
+            <div className="text-sm font-semibold tracking-wide text-ink-1000">ALTHR</div>
             <div className="text-[10px] uppercase tracking-[0.2em] text-ink-500">Autopilot</div>
           </div>
         )}
@@ -91,7 +97,7 @@ export default function Sidebar({ collapsed, onToggle, mobile = false }: Sidebar
           <button
             onClick={onToggle}
             className={cn(
-              "ml-auto rounded-md p-1 text-ink-500 hover:bg-ink-800 hover:text-gold-400 transition-micro",
+              "ml-auto rounded-lg p-1 text-ink-500 hover:bg-ink-800 hover:text-ink-1000 transition-micro",
               collapsed && "mx-auto ml-0"
             )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -141,7 +147,7 @@ export default function Sidebar({ collapsed, onToggle, mobile = false }: Sidebar
       </nav>
 
       {/* Bottom status */}
-      <div className="border-t border-ink-800 px-3 py-3">
+      <div className="border-t border-ink-700/40 px-3 py-3">
         <div className={cn("flex items-center gap-2", collapsed && "justify-center")}>
           {connStatus === "connected" ? (
             <Wifi className="h-3.5 w-3.5 text-status-ok" />

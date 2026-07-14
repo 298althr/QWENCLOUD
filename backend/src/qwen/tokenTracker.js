@@ -2,6 +2,9 @@
 // Token usage tracker + cost calculator for all Qwen API calls.
 // Tracks per-call, per-model, per-module usage with rolling windows.
 // Provides cost estimates based on DashScope pricing (per 1K tokens).
+// Persists all calls to Postgres so usage data survives restarts.
+
+const { query } = require("../db/pool");
 
 // ── Pricing (USD per 1K tokens, approximate DashScope intl rates) ──
 // Source: Alibaba Cloud DashScope pricing page (intl).
@@ -18,10 +21,93 @@ const PRICING = {
 // Each entry: { timestamp, model, module, inputTokens, outputTokens, thinkingTokens, costUSD }
 const calls = [];
 const MAX_HISTORY = 10000; // keep last 10K calls in memory
+let dbInitialized = false;
 
 // Rolling budget windows (resettable)
 let dailyBudgetUSD = Number(process.env.QWEN_DAILY_BUDGET_USD || 5.0); // $5/day default
 let monthlyBudgetUSD = Number(process.env.QWEN_MONTHLY_BUDGET_USD || 50.0); // $50/month default
+
+// ── Database persistence ──
+async function initDB() {
+  if (dbInitialized) return;
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS ai_usage_log (
+        id SERIAL PRIMARY KEY,
+        ts BIGINT NOT NULL,
+        model TEXT NOT NULL,
+        module TEXT NOT NULL,
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        thinking_tokens INTEGER NOT NULL DEFAULT 0,
+        cost_usd NUMERIC(12,6) NOT NULL DEFAULT 0
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_ai_usage_ts ON ai_usage_log(ts)`);
+
+    // Load recent calls from DB (last 30 days to match rolling windows)
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const result = await query(
+      `SELECT ts, model, module, input_tokens, output_tokens, thinking_tokens, cost_usd
+       FROM ai_usage_log WHERE ts >= $1 ORDER BY ts ASC`,
+      [cutoff]
+    );
+    for (const row of result.rows) {
+      calls.push({
+        timestamp: Number(row.ts),
+        model: row.model,
+        module: row.module,
+        inputTokens: row.input_tokens,
+        outputTokens: row.output_tokens,
+        thinkingTokens: row.thinking_tokens,
+        costUSD: Number(row.cost_usd),
+      });
+    }
+    dbInitialized = true;
+    console.log(`[tokenTracker] Loaded ${calls.length} historical calls from DB`);
+  } catch (e) {
+    console.warn(`[tokenTracker] DB init failed, running in-memory only: ${e.message}`);
+    dbInitialized = true; // don't keep retrying on every record()
+  }
+}
+
+// Fire-and-forget init on module load
+initDB();
+
+// ── Kill switch ──
+// When tripped, all Qwen API calls are blocked immediately.
+// Can be tripped automatically by budget breach or manually via API.
+let killSwitchActive = false;
+let killSwitchReason = "";
+let killSwitchTrippedAt = null;
+
+function tripKillSwitch(reason) {
+  if (killSwitchActive) return;
+  killSwitchActive = true;
+  killSwitchReason = reason || "Unknown reason";
+  killSwitchTrippedAt = new Date().toISOString();
+  console.error(`[tokenTracker] KILL SWITCH TRIPPED: ${killSwitchReason} at ${killSwitchTrippedAt}`);
+}
+
+function resetKillSwitch() {
+  if (!killSwitchActive) return;
+  killSwitchActive = false;
+  killSwitchReason = "";
+  killSwitchTrippedAt = null;
+  console.log("[tokenTracker] Kill switch reset");
+}
+
+function isKillSwitchActive() {
+  return killSwitchActive;
+}
+
+function getKillSwitchStatus() {
+  return {
+    active: killSwitchActive,
+    reason: killSwitchReason,
+    trippedAt: killSwitchTrippedAt,
+  };
+}
 
 // ── Core tracking function ──
 
@@ -57,6 +143,13 @@ function record(entry) {
 
   calls.push(record);
   if (calls.length > MAX_HISTORY) calls.shift();
+
+  // Persist to DB (fire-and-forget, don't block the response)
+  query(
+    `INSERT INTO ai_usage_log (ts, model, module, input_tokens, output_tokens, thinking_tokens, cost_usd)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [record.timestamp, record.model, record.module, record.inputTokens, record.outputTokens, record.thinkingTokens, record.costUSD]
+  ).catch((e) => console.warn(`[tokenTracker] DB insert failed: ${e.message}`));
 
   return record;
 }
@@ -194,16 +287,14 @@ function checkBudget(estimatedCostUSD) {
   const monthlyUsed = _windowSince(30 * 24 * 60 * 60 * 1000).reduce((s, c) => s + c.costUSD, 0);
 
   if (dailyUsed + estimatedCostUSD > dailyBudgetUSD) {
-    return {
-      allowed: false,
-      reason: `Daily budget exceeded: $${dailyUsed.toFixed(4)} used + $${estimatedCostUSD.toFixed(4)} > $${dailyBudgetUSD} budget`,
-    };
+    const reason = `Daily budget exceeded: $${dailyUsed.toFixed(4)} used + $${estimatedCostUSD.toFixed(4)} > $${dailyBudgetUSD} budget`;
+    tripKillSwitch(reason);
+    return { allowed: false, reason };
   }
   if (monthlyUsed + estimatedCostUSD > monthlyBudgetUSD) {
-    return {
-      allowed: false,
-      reason: `Monthly budget exceeded: $${monthlyUsed.toFixed(4)} used + $${estimatedCostUSD.toFixed(4)} > $${monthlyBudgetUSD} budget`,
-    };
+    const reason = `Monthly budget exceeded: $${monthlyUsed.toFixed(4)} used + $${estimatedCostUSD.toFixed(4)} > $${monthlyBudgetUSD} budget`;
+    tripKillSwitch(reason);
+    return { allowed: false, reason };
   }
   return { allowed: true, reason: "OK" };
 }
@@ -221,6 +312,7 @@ function setBudgets({ daily, monthly }) {
  */
 function reset() {
   calls.length = 0;
+  query(`DELETE FROM ai_usage_log`).catch(() => {});
 }
 
 module.exports = {
@@ -233,4 +325,8 @@ module.exports = {
   setBudgets,
   reset,
   PRICING,
+  tripKillSwitch,
+  resetKillSwitch,
+  isKillSwitchActive,
+  getKillSwitchStatus,
 };

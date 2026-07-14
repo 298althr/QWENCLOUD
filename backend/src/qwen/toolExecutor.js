@@ -15,6 +15,7 @@ const si = require("systeminformation");
 const { isCommandAllowed } = require("../config/allowed-commands");
 const { safCheck } = require("../pipeline/saf");
 const memory = require("../memory/store");
+const dockerUtil = require("../utils/docker");
 
 // ---- helpers ----
 
@@ -121,33 +122,21 @@ async function docker_run({ image, ports, env_vars = [], name, timeout = 60000 }
 }
 
 async function list_containers() {
-  const res = await runShell("docker ps --format '{{json .}}'", 15000);
-  if (res.exit_code !== 0) {
-    return { containers: [], error: res.stderr || "docker command failed", raw: res.stdout };
+  try {
+    const containers = await dockerUtil.listAllContainers(true);
+    return { containers, count: containers.length };
+  } catch (e) {
+    return { containers: [], error: e.message };
   }
-  const lines = res.stdout.trim().split("\n").filter(Boolean);
-  const containers = lines.map((line) => {
-    try {
-      const c = JSON.parse(line);
-      return {
-        id: c.ID,
-        name: c.Names,
-        image: c.Image,
-        status: c.Status,
-        ports: c.Ports,
-      };
-    } catch { return { raw: line }; }
-  });
-  return { containers, count: containers.length };
 }
 
-async function container_action({ action, container_id, timeout = 30000 }) {
+async function container_action({ action, container_id }) {
   if (!container_id) return { ok: false, error: "container_id is required" };
-  if (!["stop", "start", "restart"].includes(action)) {
-    return { ok: false, error: `invalid action ${action}` };
+  try {
+    return await dockerUtil.containerAction(container_id, action);
+  } catch (e) {
+    return { ok: false, action, container_id, error: e.message };
   }
-  const res = await runShell(`docker ${action} ${container_id}`, timeout);
-  return { ok: res.exit_code === 0, action, container_id, stdout: res.stdout, stderr: res.stderr };
 }
 
 async function git_clone({ repo_url, dest }) {

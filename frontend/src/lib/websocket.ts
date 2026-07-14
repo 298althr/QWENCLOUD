@@ -114,6 +114,23 @@ export function onApprovalNeeded(cb: (data: any) => void) {
   return () => { s.off("approval_needed", cb); };
 }
 
+// Terminal log events (AI commands, simulations, user commands)
+export type TerminalLogEntry = {
+  id: string;
+  command: string;
+  output: string;
+  exitCode: number | null;
+  source: string;
+  timestamp: number;
+  isoTime: string;
+};
+
+export function onTerminalLog(cb: (data: TerminalLogEntry) => void) {
+  const s = getSocket();
+  s.on("terminal_log", cb);
+  return () => { s.off("terminal_log", cb); };
+}
+
 // Decision pipeline events
 export function onDreResearch(cb: (data: DecisionEvent) => void) {
   const s = getSocket();

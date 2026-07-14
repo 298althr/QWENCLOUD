@@ -11,13 +11,13 @@ import { cn } from "@/lib/utils";
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Overview",
   "/agent": "Agent Console",
+  "/terminal": "Terminal",
   "/monitoring": "Monitoring",
   "/deployments": "Deployments",
   "/files": "File Manager",
   "/security": "Security",
   "/memory": "Memory & Learning",
   "/analytics": "Analytics",
-  "/decisions": "Decision Intelligence",
   "/settings": "Settings",
 };
 
@@ -44,7 +44,7 @@ export default function TopBar({ onMenuClick, onCommandPalette, onShortcuts, ale
       );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-800 bg-ink-900/95 px-4 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-700/40 bg-ink-900/95 px-4 backdrop-blur-md">
       <Button variant="ghost" size="icon" className="lg:hidden touch-target" onClick={onMenuClick}>
         <Menu className="h-5 w-5" />
       </Button>
@@ -53,8 +53,8 @@ export default function TopBar({ onMenuClick, onCommandPalette, onShortcuts, ale
       <div className="hidden items-center gap-2 text-sm sm:flex">
         {crumbs.map((c, i) => (
           <span key={i} className="flex items-center gap-2">
-            {i > 0 && <span className="text-ink-700">/</span>}
-            <span className={cn("font-medium", i === crumbs.length - 1 ? "text-gold-400" : "text-ink-500")}>
+            {i > 0 && <span className="text-ink-600">/</span>}
+            <span className={cn("font-medium", i === crumbs.length - 1 ? "text-ink-1000" : "text-ink-500")}>
               {c}
             </span>
           </span>

@@ -78,7 +78,7 @@ export default function ApprovalCard() {
                   </div>
                   {a.drev_winner && (
                     <div className="mt-1 text-xs text-ink-500">
-                      DREV Winner: <span className="text-gold-400">{a.drev_winner}</span>
+                      DREV Winner: <span className="text-gold-700">{a.drev_winner}</span>
                       {a.drev_reserve && <span className="text-ink-600"> · Reserve: {a.drev_reserve}</span>}
                       {a.drev_cr != null && <span className="text-ink-600"> · CR: {a.drev_cr.toFixed(2)}</span>}
                       {a.drev_robustness != null && <span className="text-ink-600"> · Robustness: {(a.drev_robustness * 100).toFixed(0)}%</span>}

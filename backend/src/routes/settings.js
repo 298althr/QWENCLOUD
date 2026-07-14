@@ -6,6 +6,7 @@ const express = require("express");
 const router = express.Router();
 const tokenTracker = require("../qwen/tokenTracker");
 const guardrails = require("../qwen/guardrails");
+const sandbox = require("../utils/sandbox");
 
 // Default settings (env-driven in production)
 const defaultSettings = {
@@ -61,6 +62,47 @@ router.post("/budgets", (req, res) => {
 router.post("/guardrails/reset", (req, res) => {
   guardrails.reset();
   res.json({ saved: true, status: guardrails.getStatus() });
+});
+
+// GET /api/settings/kill-switch — get kill switch status
+router.get("/kill-switch", (req, res) => {
+  res.json(tokenTracker.getKillSwitchStatus());
+});
+
+// POST /api/settings/kill-switch — trip or reset the kill switch
+router.post("/kill-switch", (req, res) => {
+  const { action, reason } = req.body || {};
+  if (action === "trip") {
+    tokenTracker.tripKillSwitch(reason || "Manual trip via API");
+    res.json({ saved: true, status: tokenTracker.getKillSwitchStatus() });
+  } else if (action === "reset") {
+    tokenTracker.resetKillSwitch();
+    res.json({ saved: true, status: tokenTracker.getKillSwitchStatus() });
+  } else {
+    res.status(400).json({ error: "Action must be 'trip' or 'reset'" });
+  }
+});
+
+// GET /api/settings/sandbox-mode — get sandbox mode status
+router.get("/sandbox-mode", (req, res) => {
+  res.json(sandbox.getStatus());
+});
+
+// POST /api/settings/sandbox-mode — toggle sandbox mode on/off
+router.post("/sandbox-mode", (req, res) => {
+  const { active } = req.body || {};
+  const status = sandbox.setMode(active);
+  res.json({ saved: true, status });
+});
+
+// POST /api/settings/sandbox-reset — wipe sandbox volume clean
+router.post("/sandbox-reset", async (req, res) => {
+  const result = await sandbox.resetSandboxVolume();
+  if (result.ok) {
+    res.json(result);
+  } else {
+    res.status(500).json(result);
+  }
 });
 
 module.exports = router;

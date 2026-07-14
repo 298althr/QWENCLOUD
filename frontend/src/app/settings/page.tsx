@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader, SectionCard, MetricCard, StatusPill, ConfidenceMeter } from "@/components/design-system";
-import { Key, SlidersHorizontal, DollarSign, Gauge, Zap, RefreshCw, Cpu } from "lucide-react";
+import { SlidersHorizontal, DollarSign, Gauge, Zap, RefreshCw, Cpu, FlaskConical, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,8 @@ export default function SettingsPage() {
   const [dailyBudget, setDailyBudget] = useState(5);
   const [monthlyBudget, setMonthlyBudget] = useState(50);
   const [loadingUsage, setLoadingUsage] = useState(false);
+  const [sandboxMode, setSandboxMode] = useState(false);
+  const [sandboxLoading, setSandboxLoading] = useState(false);
 
   const fetchUsage = useCallback(async (window?: string) => {
     setLoadingUsage(true);
@@ -44,6 +46,35 @@ export default function SettingsPage() {
     const interval = setInterval(() => fetchUsage(), 30000);
     return () => clearInterval(interval);
   }, [fetchUsage]);
+
+  useEffect(() => {
+    api.getSandboxMode().then((data) => setSandboxMode(data.active)).catch(() => {});
+  }, []);
+
+  const toggleSandbox = async (active: boolean) => {
+    setSandboxLoading(true);
+    try {
+      await api.setSandboxMode(active);
+      setSandboxMode(active);
+      toast.success(active ? "Sandbox mode activated" : "Sandbox mode deactivated");
+    } catch (e: any) {
+      toast.error(`Failed: ${e.message}`);
+    } finally {
+      setSandboxLoading(false);
+    }
+  };
+
+  const resetSandbox = async () => {
+    setSandboxLoading(true);
+    try {
+      await api.resetSandbox();
+      toast.success("Sandbox volume reset");
+    } catch (e: any) {
+      toast.error(`Failed: ${e.message}`);
+    } finally {
+      setSandboxLoading(false);
+    }
+  };
 
   const save = () => {
     toast.success("Settings saved");
@@ -77,7 +108,7 @@ export default function SettingsPage() {
     <div className="space-y-xl">
       <PageHeader
         title="Settings"
-        description="Agent configuration, thresholds, AI usage, and API keys"
+        description="Agent configuration, thresholds, and AI usage costs"
         badge={<StatusPill variant="ok">System online</StatusPill>}
       />
 
@@ -85,7 +116,6 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="agent"><SlidersHorizontal className="mr-2 h-4 w-4" /> Agent Config</TabsTrigger>
           <TabsTrigger value="usage"><DollarSign className="mr-2 h-4 w-4" /> AI Usage & Costs</TabsTrigger>
-          <TabsTrigger value="api"><Key className="mr-2 h-4 w-4" /> API Keys</TabsTrigger>
         </TabsList>
 
         <TabsContent value="agent" className="mt-4">
@@ -99,7 +129,7 @@ export default function SettingsPage() {
               <div>
                 <div className="flex items-center justify-between text-sm">
                   <label className="text-ink-300">Auto-Execute Confidence Threshold</label>
-                  <span className="font-mono text-gold-400">{confidenceThreshold}%</span>
+                  <span className="font-mono text-gold-700">{confidenceThreshold}%</span>
                 </div>
                 <p className="mb-2 text-xs text-ink-600">Actions with confidence above this threshold auto-execute. Below require human approval.</p>
                 <ConfidenceMeter value={confidenceThreshold} showValue={false} />
@@ -122,7 +152,7 @@ export default function SettingsPage() {
               <div>
                 <div className="flex items-center justify-between text-sm">
                   <label className="text-ink-300">Monitoring Interval</label>
-                  <span className="font-mono text-gold-400">{monitorInterval}s</span>
+                  <span className="font-mono text-gold-700">{monitorInterval}s</span>
                 </div>
                 <p className="mb-2 text-xs text-ink-600">How often the monitoring loop polls server health.</p>
                 <input type="range" min="10" max="300" step="10" value={monitorInterval} onChange={(e) => setMonitorInterval(Number(e.target.value))} className="w-full accent-gold-500" />
@@ -134,6 +164,33 @@ export default function SettingsPage() {
                   <p className="text-xs text-ink-600">Allow the agent to execute safe actions automatically.</p>
                 </div>
                 <Switch checked={autoExecute} onCheckedChange={setAutoExecute} />
+              </div>
+
+              <div className={cn("rounded-lg border p-4", sandboxMode ? "border-status-warn/40 bg-status-warn/5" : "border-ink-800 bg-ink-950/30")}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className={cn("h-4 w-4", sandboxMode ? "text-status-warn" : "text-ink-500")} />
+                    <div>
+                      <label className="text-sm text-ink-300">Sandbox Mode</label>
+                      <p className="text-xs text-ink-600">Run commands in disposable containers. SAF is relaxed. Files route to isolated volume.</p>
+                    </div>
+                  </div>
+                  <Switch checked={sandboxMode} onCheckedChange={toggleSandbox} disabled={sandboxLoading} />
+                </div>
+                {sandboxMode && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <Badge variant="warning" className="animate-pulse">SANDBOX ACTIVE</Badge>
+                    <Button variant="outline" size="sm" onClick={resetSandbox} disabled={sandboxLoading}>
+                      <RefreshCw className={cn("h-3 w-3", sandboxLoading && "animate-spin")} /> Reset Sandbox Volume
+                    </Button>
+                  </div>
+                )}
+                {!sandboxMode && (
+                  <div className="mt-2 flex items-start gap-1.5 text-xs text-ink-600">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span>When activated, terminal commands run inside disposable Alpine containers with network isolation and resource limits. File operations route to a separate sandbox volume. This is the safe demo mode.</span>
+                  </div>
+                )}
               </div>
             </div>
           </SectionCard>
@@ -276,7 +333,7 @@ export default function SettingsPage() {
                           <span className="ml-2 text-xs text-ink-600">{info.calls} calls</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-gold-400">${info.costUSD.toFixed(4)}</span>
+                          <span className="text-gold-700">${info.costUSD.toFixed(4)}</span>
                           <span className="ml-2 text-xs text-ink-600">{(info.inputTokens + info.outputTokens + info.thinkingTokens).toLocaleString()} tok</span>
                         </div>
                       </div>
@@ -296,7 +353,7 @@ export default function SettingsPage() {
                           <span className="ml-2 text-xs text-ink-600">{info.calls} calls</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-gold-400">${info.costUSD.toFixed(4)}</span>
+                          <span className="text-gold-700">${info.costUSD.toFixed(4)}</span>
                         </div>
                       </div>
                     ))}
@@ -312,24 +369,6 @@ export default function SettingsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="api" className="mt-4">
-          <SectionCard title="API Keys" description="Environment-based credentials" delay={0.1}>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-ink-600">DASHSCOPE_API_KEY</label>
-                <input type="password" placeholder="sk-••••••••••••" disabled className="mt-1 w-full rounded-lg border border-ink-700 bg-ink-950/50 px-3 py-2 text-sm text-ink-500" />
-              </div>
-              <div>
-                <label className="text-xs text-ink-600">TELEGRAM_BOT_TOKEN</label>
-                <input type="password" placeholder="••••••••••••" disabled className="mt-1 w-full rounded-lg border border-ink-700 bg-ink-950/50 px-3 py-2 text-sm text-ink-500" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="warning">Read-only</Badge>
-                <p className="text-xs text-ink-600">API keys are configured via environment variables (.env file).</p>
-              </div>
-            </div>
-          </SectionCard>
-        </TabsContent>
       </Tabs>
     </div>
   );

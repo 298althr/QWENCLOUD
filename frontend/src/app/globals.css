@@ -3,34 +3,34 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --radix-dialog-overlay-blur: 4px;
 
-  /* Pro Max design tokens */
-  --bg-page: #070a12;
-  --bg-panel: #0b0f1a;
-  --bg-card: #0f1422;
-  --bg-card-hover: #141a2b;
-  --bg-input: #0b0f1a;
-  --border-default: rgba(28, 36, 56, 0.6);
-  --border-hover: #27314a;
-  --border-strong: #1c2438;
-  --text-primary: #e6e9f2;
-  --text-secondary: #c3cbe0;
-  --text-tertiary: #8e9bbd;
-  --text-muted: #5c6b90;
-  --accent-gold: #d4af5f;
-  --accent-gold-light: #e8c87a;
-  --accent-gold-dark: #b8924a;
-  --status-ok: #3ddc84;
-  --status-warn: #f5b342;
-  --status-crit: #ff5c5c;
-  --status-info: #5aa9ff;
-  --status-ai: #c084fc;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.25);
-  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.3);
-  --focus-ring: 0 0 0 2px rgba(212, 175, 95, 0.25);
+  /* Wise-inspired design tokens (DESIGN.md) */
+  --bg-page: #e8ebe6;       /* canvas-soft (sage) */
+  --bg-panel: #ffffff;       /* canvas (white) */
+  --bg-card: #ffffff;        /* canvas */
+  --bg-card-hover: #e8ebe6;  /* canvas-soft */
+  --bg-input: #ffffff;       /* canvas */
+  --border-default: rgba(14, 15, 12, 0.08);
+  --border-hover: #b8beb4;
+  --border-strong: #0e0f0c;  /* ink */
+  --text-primary: #0e0f0c;   /* ink */
+  --text-secondary: #454745; /* body */
+  --text-tertiary: #454745;  /* body */
+  --text-muted: #868685;     /* mute */
+  --accent-gold: #4A5D23;    /* primary (army green) */
+  --accent-gold-light: #6B7E3C; /* lighter army green */
+  --accent-gold-dark: #3A4A1C;  /* darker army green hover */
+  --status-ok: #3a7d2c;      /* positive (darker for contrast) */
+  --status-warn: #b86700;    /* warning-deep */
+  --status-crit: #d03238;    /* negative */
+  --status-info: #0e7fb0;    /* darker cyan for contrast */
+  --status-ai: #4A5D23;      /* army green */
+  --shadow-card: 0 1px 3px rgba(14, 15, 12, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(14, 15, 12, 0.08);
+  --shadow-elevated: 0 8px 24px rgba(14, 15, 12, 0.10);
+  --focus-ring: 0 0 0 2px rgba(74, 93, 35, 0.35);
 }
 
 html,
@@ -46,20 +46,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Pro Max scrollbar */
+/* Wise theme scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b0f1a;
+  background: #e8ebe6;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27314a;
+  background: #b8beb4;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4768;
+  background: #868685;
 }
 
 /* Reduced motion */
@@ -92,7 +92,7 @@ body {
 @layer components {
   /* Card system */
   .card {
-    @apply rounded-card border border-ink-700/60 bg-ink-850 shadow-card transition-all duration-card ease-out;
+    @apply rounded-card border border-ink-700/40 bg-ink-850 shadow-card transition-all duration-card ease-out;
   }
   .card-hover {
     @apply hover:border-ink-600 hover:bg-ink-800 hover:shadow-card-hover hover:-translate-y-0.5;
@@ -121,19 +121,19 @@ body {
     @apply pill bg-status-ai/15 text-status-ai;
   }
   .pill-gold {
-    @apply pill bg-gold-500/15 text-gold-400;
+    @apply pill bg-gold-500/15 text-gold-700;
   }
 
   /* Navigation */
   .nav-link {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-400 transition-all duration-micro ease-out hover:bg-ink-800 hover:text-gold-400;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-400 transition-all duration-micro ease-out hover:bg-ink-800 hover:text-gold-700;
   }
   .nav-link-active {
-    @apply relative bg-ink-800 text-gold-400;
+    @apply relative bg-ink-800 text-gold-700;
   }
   .nav-link-active::before {
-    @apply absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-gold-400 content-[''];
-    box-shadow: 0 0 10px rgba(232, 200, 122, 0.5);
+    @apply absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-gold-500 content-[''];
+    box-shadow: 0 0 10px rgba(74, 93, 35, 0.4);
   }
 
   /* Status indicators */
@@ -146,7 +146,7 @@ body {
 
   /* Input base */
   .input-pro {
-    @apply rounded-input border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-ink-100 shadow-inset transition-all duration-micro ease-out placeholder:text-ink-500 hover:border-ink-600 focus:border-gold-500 focus:outline-none;
+    @apply rounded-input border border-ink-700/40 bg-ink-900 px-3 py-2 text-sm text-ink-100 shadow-inset transition-all duration-micro ease-out placeholder:text-ink-500 hover:border-ink-600 focus:border-gold-500 focus:outline-none;
   }
 
   /* Button press */
@@ -156,7 +156,7 @@ body {
 
   /* Code / mono surfaces */
   .code-surface {
-    @apply rounded-input bg-ink-900/80 px-2 py-1 font-mono text-mono text-ink-200;
+    @apply rounded-input bg-ink-950/80 px-2 py-1 font-mono text-mono text-ink-400;
   }
 
   /* Skeleton */
@@ -164,9 +164,9 @@ body {
     @apply animate-shimmer rounded-card bg-ink-800;
     background-image: linear-gradient(
       90deg,
-      rgba(39, 49, 74, 0) 0%,
-      rgba(39, 49, 74, 0.5) 50%,
-      rgba(39, 49, 74, 0) 100%
+      rgba(184, 190, 180, 0) 0%,
+      rgba(184, 190, 180, 0.5) 50%,
+      rgba(184, 190, 180, 0) 100%
     );
     background-size: 200% 100%;
   }

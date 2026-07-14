@@ -20,6 +20,9 @@ const express = require("express");
 const router = express.Router();
 const monitor = require("../monitors/monitor");
 const { audit } = require("../utils/audit");
+const { addTerminalLog } = require("../utils/terminalLog");
+const { buildTopology, getImpactAnalysis } = require("../utils/topology");
+const { listAllContainers, containerAction: dockerContainerAction } = require("../utils/docker");
 
 // Map a friendly scenario name to a synthetic anomaly + overridden metrics.
 function buildScenario(type, value) {
@@ -117,10 +120,34 @@ router.post("/anomaly", async (req, res) => {
       result: "success",
     }).catch((e) => console.warn("[simulate] audit skipped:", e.message));
 
+    // Get io for immediate WebSocket emission
+    const io = req.app.get("io");
+
+    // Immediately emit action_update so the activity feed shows the simulation
+    if (io) {
+      io.emit("action_update", {
+        stage: "simulated",
+        action: `simulate:${scenario.anomaly.type}`,
+        message: scenario.anomaly.message,
+        severity: scenario.anomaly.severity,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Log to persistent terminal so user can see and click Explain
+    addTerminalLog({
+      command: `[SIMULATE] ${scenario.anomaly.type}`,
+      output: scenario.anomaly.message,
+      exitCode: 0,
+      source: "simulate",
+      io,
+    }).catch(() => {});
+
     // Fire the AI loop asynchronously so the HTTP response returns immediately;
     // progress streams to the dashboard over WebSocket.
+    // Pass { skipCooldown: true } so simulated events always trigger the full loop.
     monitor
-      .handleAnomaly(scenario.anomaly, merged)
+      .handleAnomaly(scenario.anomaly, merged, { skipCooldown: true, io })
       .catch((e) => console.error("[simulate] handleAnomaly failed:", e.message));
 
     res.json({
@@ -152,9 +179,90 @@ router.get("/scenarios", (req, res) => {
       { type: "ram", label: "Memory pressure", default_value: 94, unit: "%" },
       { type: "disk", label: "Disk pressure", default_value: 92, unit: "%" },
       { type: "port", label: "Port conflict", default_value: 3000, unit: "port" },
+      { type: "service_failure", label: "Service failure (stop container + cascade analysis)", default_value: null, unit: "service" },
     ],
     usage: 'POST /api/simulate/anomaly { "type": "cpu", "value": 95 }',
   });
+});
+
+/**
+ * POST /api/simulate/service-failure
+ * Body: { service: "postgres"|"redis"|"backend"|"frontend" }
+ * Stops the specified container, runs cascade analysis to show which services
+ * are affected, and emits cascade alerts via WebSocket. Does NOT actually
+ * trigger the AI remediation loop (this is for demonstrating the topology
+ * and cascade detection features).
+ */
+router.post("/service-failure", async (req, res) => {
+  const { service } = req.body || {};
+  if (!service) return res.status(400).json({ error: "service is required (e.g. postgres, redis, backend, frontend)" });
+
+  try {
+    const topology = await buildTopology();
+    const containers = await listAllContainers(false);
+
+    const target = containers.find((c) => {
+      const svc = c.labels && c.labels["com.docker.compose.service"];
+      return svc === service || c.name.includes(service);
+    });
+
+    if (!target) {
+      return res.status(404).json({ error: `No running container found for service "${service}"` });
+    }
+
+    if (target.state !== "running") {
+      return res.status(400).json({ error: `Container ${target.name} is not running` });
+    }
+
+    const impact = await getImpactAnalysis(target.id);
+    const io = req.app.get("io");
+
+    await audit({
+      operation: "execute",
+      actor: "human:demo",
+      target: `simulate:service_failure:${service}`,
+      target_type: "container",
+      reasoning: `Simulated service failure for ${service} to demonstrate cascade detection`,
+      result: "success",
+    }).catch(() => {});
+
+    addTerminalLog({
+      command: `[SIMULATE] service_failure: ${service}`,
+      output: `Stopping ${target.name}. Impact: ${impact.impactedCount} dependent services.`,
+      exitCode: 0,
+      source: "simulate",
+      io,
+    }).catch(() => {});
+
+    if (io) {
+      io.emit("action_update", {
+        stage: "simulated_service_failure",
+        action: `stop:${service}`,
+        message: `Service ${service} stopped. ${impact.impactedCount} dependent services affected.`,
+        severity: "critical",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const cascadeResults = await monitor.checkCascadeEffects({}, io);
+
+    res.json({
+      status: "triggered",
+      service,
+      container: { id: target.id, name: target.name },
+      impactedServices: impact.impacted.map((i) => ({ name: i.name, service: i.service })),
+      impactedCount: impact.impactedCount,
+      cascadeResults,
+      what_happens_next: [
+        `Container ${target.name} was stopped`,
+        `${impact.impactedCount} dependent services identified via topology graph`,
+        "Cascade alerts emitted to dashboard",
+        "Check the Topology page to see the impact graph",
+      ],
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;

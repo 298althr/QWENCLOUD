@@ -142,6 +142,12 @@ router.use("/remote", require("./remote"));
 // Settings
 router.use("/settings", require("./settings"));
 
+// Terminal logs (persistent)
+router.use("/terminal", require("./terminal"));
+
+// Chat history (persistent AI conversation)
+router.use("/chat-history", require("./chat-history"));
+
 // Monitor kill switch
 router.use("/monitor", require("./monitor").router);
 

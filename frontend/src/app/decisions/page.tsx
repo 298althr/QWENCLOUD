@@ -172,15 +172,15 @@ export default function DecisionsPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-lg bg-ink-900/50 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-ink-500">Coverage</div>
-                <div className="mt-1 text-metric text-gold-400">{((researchData.coverage?.coverage ?? researchData.coverage ?? 0) * 100).toFixed(0)}%</div>
+                <div className="mt-1 text-metric text-gold-700">{((researchData.coverage?.coverage ?? researchData.coverage ?? 0) * 100).toFixed(0)}%</div>
               </div>
               <div className="rounded-lg bg-ink-900/50 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-ink-500">Contradiction</div>
-                <div className="mt-1 text-metric text-gold-400">{((researchData.contradiction_score ?? researchData.contradiction?.contradiction_score ?? 0) * 100).toFixed(0)}%</div>
+                <div className="mt-1 text-metric text-gold-700">{((researchData.contradiction_score ?? researchData.contradiction?.contradiction_score ?? 0) * 100).toFixed(0)}%</div>
               </div>
               <div className="rounded-lg bg-ink-900/50 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-ink-500">Candidates</div>
-                <div className="mt-1 text-metric text-gold-400">{researchData.candidates?.length || 0}</div>
+                <div className="mt-1 text-metric text-gold-700">{researchData.candidates?.length || 0}</div>
               </div>
             </div>
             {researchData.candidates?.map((c: any, i: number) => (
@@ -214,7 +214,7 @@ export default function DecisionsPage() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-status-ok" />
                 <span className="text-sm text-ink-200">
-                  Winner: <span className="text-gold-400 font-medium">{verifyData.winner?.description || verifyData.winner?.diagnosis || verifyData.winner?.label || "—"}</span>
+                  Winner: <span className="text-gold-700 font-medium">{verifyData.winner?.description || verifyData.winner?.diagnosis || verifyData.winner?.label || "—"}</span>
                 </span>
               </div>
               {verifyData.reserve && (
@@ -223,11 +223,11 @@ export default function DecisionsPage() {
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="rounded-lg bg-ink-900/50 p-3">
                   <div className="text-[10px] uppercase tracking-wider text-ink-500">CR (Contrast Ratio)</div>
-                  <div className="mt-1 text-metric text-gold-400">{verifyData.cr?.toFixed(2) || "—"}</div>
+                  <div className="mt-1 text-metric text-gold-700">{verifyData.cr?.toFixed(2) || "—"}</div>
                 </div>
                 <div className="rounded-lg bg-ink-900/50 p-3">
                   <div className="text-[10px] uppercase tracking-wider text-ink-500">Regime</div>
-                  <div className="mt-1 text-metric text-gold-400">{verifyData.regime || "—"}</div>
+                  <div className="mt-1 text-metric text-gold-700">{verifyData.regime || "—"}</div>
                 </div>
               </div>
               <ConfidenceMeter value={verifyData.robustness ? verifyData.robustness * 100 : 0} label="Robustness" />
@@ -283,7 +283,7 @@ export default function DecisionsPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-ink-400">Decision Index</span>
-                <span className="text-metric text-gold-400">{massData.di?.toFixed(2) || "—"}</span>
+                <span className="text-metric text-gold-700">{massData.di?.toFixed(2) || "—"}</span>
               </div>
               <Progress value={Math.min((massData.di || 0) * 10, 100)} />
               <Badge variant={massData.tier === "mission_critical" ? "critical" : massData.tier === "critical" ? "warning" : "info"}>
@@ -363,15 +363,15 @@ export default function DecisionsPage() {
             <div className="md:col-span-3 grid grid-cols-3 gap-3 text-xs">
               <div className="rounded-lg bg-ink-900/50 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-ink-500">Calibration Error</div>
-                <div className="mt-1 text-metric text-gold-400">{(calibrationData?.ece ?? calibrationData?.metrics?.ece)?.toFixed(3) || "—"}</div>
+                <div className="mt-1 text-metric text-gold-700">{(calibrationData?.ece ?? calibrationData?.metrics?.ece)?.toFixed(3) || "—"}</div>
               </div>
               <div className="rounded-lg bg-ink-900/50 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-ink-500">Samples</div>
-                <div className="mt-1 text-metric text-gold-400">{calibrationData?.n ?? calibrationData?.metrics?.count ?? "—"}</div>
+                <div className="mt-1 text-metric text-gold-700">{calibrationData?.n ?? calibrationData?.metrics?.count ?? "—"}</div>
               </div>
               <div className="rounded-lg bg-ink-900/50 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-ink-500">Avg Quality</div>
-                <div className="mt-1 text-metric text-gold-400">{(calibrationData?.avgQuality ?? (calibrationData?.metrics?.success_rate ? calibrationData.metrics.success_rate * 100 : null))?.toFixed(2) || "—"}</div>
+                <div className="mt-1 text-metric text-gold-700">{(calibrationData?.avgQuality ?? (calibrationData?.metrics?.success_rate ? calibrationData.metrics.success_rate * 100 : null))?.toFixed(2) || "—"}</div>
               </div>
             </div>
           </div>
@@ -403,7 +403,7 @@ export default function DecisionsPage() {
         </div>
         <div className="mt-3 rounded-lg bg-ink-950/50 p-3 text-xs text-ink-500">
           <span className="text-ink-600">Overall System Status: </span>
-          <span className="text-gold-400 font-medium">
+          <span className="text-gold-700 font-medium">
             {activeCount === 0 ? "All frameworks standby — run a decision pipeline to activate" : "Frameworks active — monitoring decision quality"}
           </span>
         </div>

@@ -3,17 +3,16 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import { useAgentStore } from "@/stores/agent-store";
 import { Button } from "@/components/ui/button";
-import { onServerMetrics, onActionUpdate, onAnomalyAlert, onApprovalNeeded, sendAgentMessage } from "@/lib/websocket";
+import { onServerMetrics, onActionUpdate, onAnomalyAlert, onApprovalNeeded } from "@/lib/websocket";
 import { api } from "@/lib/api";
 import { AreaChart } from "@/components/charts/AreaChart";
-import { PageHeader, MetricCard, SectionCard, ActivityFeed, QuickActions, StatusPill } from "@/components/design-system";
+import { PageHeader, MetricCard, SectionCard, ActivityFeed, StatusPill } from "@/components/design-system";
 import ApprovalCard from "@/components/ApprovalCard";
-import { Cpu, MemoryStick, HardDrive, Activity, CheckCircle2, AlertTriangle, Terminal, ShieldCheck, Zap, Power, Play, RotateCcw } from "lucide-react";
+import { Cpu, MemoryStick, HardDrive, Activity, CheckCircle2, AlertTriangle, ShieldCheck, Zap, Power, Play, RotateCcw, AlertOctagon, Boxes } from "lucide-react";
 import { toast } from "sonner";
 import type { ActivityItem } from "@/components/design-system";
 
 const MAX_POINTS = 60;
-const QUICK_COMMANDS = ["show server health", "the API is slow", "list top CPU processes", "run security scan"];
 
 function getStatus(value: number | null, warn: number, crit: number): "ok" | "warn" | "crit" {
   if (value === null || value === undefined) return "ok";
@@ -41,6 +40,10 @@ export default function HomePage() {
   const [monitorEnabled, setMonitorEnabled] = useState<boolean | null>(null);
   const [containers, setContainers] = useState<any[]>([]);
   const [containerLoading, setContainerLoading] = useState<string | null>(null);
+  const [killSwitchActive, setKillSwitchActive] = useState(false);
+  const [killSwitchReason, setKillSwitchReason] = useState("");
+  const [serviceHealth, setServiceHealth] = useState<any>(null);
+  const [simulatingService, setSimulatingService] = useState<string | null>(null);
   const cpuHistory = useRef<{ time: string; value: number }[]>([]);
   const ramHistory = useRef<{ time: string; value: number }[]>([]);
   const diskHistory = useRef<{ time: string; value: number }[]>([]);
@@ -48,6 +51,9 @@ export default function HomePage() {
   useEffect(() => {
     loadMonitorStatus();
     loadContainers();
+    loadKillSwitch();
+    loadServiceHealth();
+    const healthInterval = setInterval(() => loadServiceHealth(), 15000);
     const offMetrics = onServerMetrics((m) => {
       setMetrics({ cpu: m.cpu, ram: m.ram, disk: m.disk });
       const now = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -79,7 +85,7 @@ export default function HomePage() {
       degradations: a.degradations,
       explainability: a.explainability,
     }));
-    return () => { offMetrics(); offAlert(); offAction(); offApproval(); };
+    return () => { offMetrics(); offAlert(); offAction(); offApproval(); clearInterval(healthInterval); };
   }, [setMetrics, addAlert, addAction, addApproval]);
 
   const cpu = metrics?.cpu ?? 0;
@@ -127,10 +133,10 @@ export default function HomePage() {
     try {
       if (monitorEnabled) {
         await api.stopMonitor();
-        toast.success("Autonomous monitor stopped");
+        toast.success("Monitor stopped");
       } else {
         await api.startMonitor();
-        toast.success("Autonomous monitor started");
+        toast.success("Monitor started");
       }
       await loadMonitorStatus();
     } catch (e: any) {
@@ -143,6 +149,45 @@ export default function HomePage() {
       const r = await api.dockerContainers();
       setContainers(r.containers || []);
     } catch { /* ignore */ }
+  };
+
+  const loadKillSwitch = async () => {
+    try {
+      const status = await api.getKillSwitch();
+      setKillSwitchActive(status.active);
+      setKillSwitchReason(status.reason || "");
+    } catch { /* ignore */ }
+  };
+
+  const loadServiceHealth = async () => {
+    try {
+      const data = await api.serviceHealth();
+      setServiceHealth(data);
+    } catch { /* ignore */ }
+  };
+
+  const simulateServiceFailureFn = async (service: string) => {
+    setSimulatingService(service);
+    try {
+      const result = await api.simulateServiceFailure(service);
+      toast.success(`Simulated ${service} failure. ${result.impactedCount} services impacted.`);
+      await loadServiceHealth();
+    } catch (e: any) {
+      toast.error(`Simulation failed: ${e.message}`);
+    } finally {
+      setSimulatingService(null);
+    }
+  };
+
+  const resetKillSwitch = async () => {
+    try {
+      await api.resetKillSwitch();
+      setKillSwitchActive(false);
+      setKillSwitchReason("");
+      toast.success("AI kill switch reset");
+    } catch (e: any) {
+      toast.error(`Reset failed: ${e.message}`);
+    }
   };
 
   const containerAction = async (id: string, action: "stop" | "start" | "restart") => {
@@ -158,21 +203,26 @@ export default function HomePage() {
     }
   };
 
-  const quickActions = QUICK_COMMANDS.map((cmd) => ({
-    id: cmd,
-    label: cmd,
-    icon: Terminal,
-    variant: "outline" as const,
-    onClick: () => { sendAgentMessage(cmd); toast.info(`Sent: "${cmd}"`); },
-  }));
-
   return (
     <div className="space-y-xl">
       <PageHeader
-        title="Command Center"
-        description="AI-Native Server Operations Agent — powered by Qwen Cloud"
+        title="Dashboard"
+        description="Server operations monitor powered by Qwen Cloud"
         badge={<StatusPill variant={overallStatus} pulse={overallStatus !== "ok"}>{overallStatus === "ok" ? "Healthy" : overallStatus === "warn" ? "Warning" : "Critical"}</StatusPill>}
       />
+
+      {/* Kill switch banner */}
+      {killSwitchActive && (
+        <div className="flex items-center justify-between rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-800">
+            <AlertOctagon className="h-4 w-4 shrink-0" />
+            <span><strong>AI Usage Halted:</strong> {killSwitchReason}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={resetKillSwitch} className="border-red-300 text-red-800 hover:bg-red-100">
+            Reset Kill Switch
+          </Button>
+        </div>
+      )}
 
       {/* KPI row */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -212,34 +262,94 @@ export default function HomePage() {
 
       {/* Resource charts */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <SectionCard title="CPU Usage" description="Real-time processor load" delay={0.1}>
+        <SectionCard title="CPU Usage" description="Processor load" delay={0.1}>
           <AreaChart data={cpuHistory.current} color="#d4af5f" label="CPU" threshold={85} />
         </SectionCard>
-        <SectionCard title="RAM Usage" description="Memory pressure over time" delay={0.15}>
+        <SectionCard title="RAM Usage" description="Memory usage" delay={0.15}>
           <AreaChart data={ramHistory.current} color="#5aa9ff" label="RAM" threshold={90} />
         </SectionCard>
-        <SectionCard title="Disk Usage" description="Storage utilization" delay={0.2}>
+        <SectionCard title="Disk Usage" description="Storage usage" delay={0.2}>
           <AreaChart data={diskHistory.current} color="#3ddc84" label="Disk" threshold={85} />
         </SectionCard>
       </section>
 
-      {/* Activity + approvals + quick actions */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Service Health Aggregation (Phase 4) */}
+      {serviceHealth && serviceHealth.services && serviceHealth.services.length > 0 && (
         <SectionCard
-          title="Recent Activity"
-          description="Live stream of agent actions, approvals, and anomalies"
-          className="lg:col-span-2"
-          delay={0.25}
-          footer={`${actions.length} total events tracked · ${approvals.length} pending approval${approvals.length === 1 ? "" : "s"}`}
+          title="Service Health"
+          description="Aggregated health across all Docker services"
+          delay={0.22}
+          headerActions={
+                <StatusPill variant={serviceHealth.overall === "green" ? "ok" : serviceHealth.overall === "amber" ? "warn" : "crit"} pulse={serviceHealth.overall !== "green"}>
+                  {serviceHealth.overall === "green" ? "All healthy" : serviceHealth.overall === "amber" ? "Degraded" : serviceHealth.overall === "red" ? "Service down" : "Unknown"}
+                </StatusPill>
+          }
         >
-          <ActivityFeed items={activityItems} emptyMessage="No recent activity. Send a command from the Agent Console to get started." />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {serviceHealth.services.map((svc: any) => (
+              <div
+                key={svc.name}
+                className={`rounded-lg border p-3 ${
+                  svc.status === "green" ? "border-status-ok/30 bg-status-ok/5" :
+                  svc.status === "amber" ? "border-status-warn/30 bg-status-warn/5" :
+                  "border-status-crit/30 bg-status-crit/5"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-ink-200">
+                    <Boxes className="h-3.5 w-3.5" />
+                    {svc.name}
+                  </span>
+                  <span className={`h-2 w-2 rounded-full ${
+                    svc.status === "green" ? "bg-status-ok" :
+                    svc.status === "amber" ? "bg-status-warn" :
+                    "bg-status-crit"
+                  } ${svc.status !== "green" ? "animate-pulse" : ""}`} />
+                </div>
+                <div className="mt-2 text-xs text-ink-500">
+                  {svc.running}/{svc.total} running
+                </div>
+                {svc.containers && svc.containers.map((c: any) => (
+                  <div key={c.name} className="mt-1.5 flex items-center justify-between text-xs">
+                    <span className="text-ink-400 truncate max-w-[80px]">{c.name}</span>
+                    <span className="text-ink-600">
+                      {c.cpuPercent.toFixed(1)}% CPU
+                    </span>
+                  </div>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-6 w-full text-xs text-status-crit hover:text-status-crit"
+                  onClick={() => simulateServiceFailureFn(svc.name)}
+                  disabled={simulatingService !== null || svc.running === 0}
+                >
+                  {simulatingService === svc.name ? "Simulating..." : `Simulate ${svc.name} failure`}
+                </Button>
+              </div>
+            ))}
+          </div>
         </SectionCard>
+      )}
+
+      {/* Activity + Controls */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-4">
+          <SectionCard
+            title="Recent Activity"
+            description="Agent actions, approvals, anomalies, and AI responses"
+            delay={0.25}
+            footer={`${actions.length} total events tracked · ${approvals.length} pending approval${approvals.length === 1 ? "" : "s"}`}
+          >
+            <ActivityFeed items={activityItems} emptyMessage="No recent activity. Use the AI Assistant or Terminal to get started." />
+          </SectionCard>
+        </div>
 
         <div className="space-y-4">
           <ApprovalCard />
           <SectionCard
             title="Simulate Incident"
-            description="Inject a synthetic anomaly to test the AI autonomous loop"
+            description="Inject a synthetic anomaly to test the monitor"
             delay={0.28}
           >
             <div className="grid grid-cols-2 gap-2">
@@ -285,17 +395,14 @@ export default function HomePage() {
               </Button>
             </div>
           </SectionCard>
-          <SectionCard title="Try These Commands" delay={0.3}>
-            <QuickActions actions={quickActions} />
-          </SectionCard>
           <SectionCard
             title="System Controls"
-            description="Stop AI loop and manage containers"
+            description="Stop monitor and manage containers"
             delay={0.36}
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-400">AI Monitor</span>
+                <span className="text-ink-400">Monitor</span>
                 <Button
                   variant={monitorEnabled ? "destructive" : "outline"}
                   size="sm"
@@ -304,7 +411,7 @@ export default function HomePage() {
                   className="gap-1"
                 >
                   {monitorEnabled ? <Power className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                  {monitorEnabled === null ? "Loading" : monitorEnabled ? "Stop AI" : "Start AI"}
+                  {monitorEnabled === null ? "Loading" : monitorEnabled ? "Stop Monitor" : "Start Monitor"}
                 </Button>
               </div>
               <div className="space-y-1">
@@ -331,7 +438,7 @@ export default function HomePage() {
           </SectionCard>
           <SectionCard
             title="System Status"
-            description="Governance & safety indicators"
+            description="Safety and routing indicators"
             delay={0.35}
           >
             <div className="space-y-3">
@@ -351,7 +458,7 @@ export default function HomePage() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-ink-400 flex items-center gap-2"><Activity className="h-4 w-4" /> Decision pipeline</span>
-                <StatusPill variant="ai">DRE → DREV → CRDS</StatusPill>
+                <StatusPill variant="ai">DRE then DREV then CRDS</StatusPill>
               </div>
             </div>
           </SectionCard>

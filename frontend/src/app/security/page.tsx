@@ -58,9 +58,9 @@ export default function SecurityPage() {
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-3">
-        <ShieldCheck className="h-6 w-6 text-gold-400" />
+        <ShieldCheck className="h-6 w-6 text-gold-700" />
         <div>
-          <h1 className="text-xl font-semibold text-gold-400">Safety & Audit</h1>
+          <h1 className="text-xl font-semibold text-gold-700">Safety & Audit</h1>
           <p className="text-sm text-ink-500">Safety checks, audit log, and security scans.</p>
         </div>
       </header>
@@ -95,8 +95,8 @@ export default function SecurityPage() {
         <CardContent>
           {scanResult && (
             <div className="rounded-lg bg-ink-950/50 p-3 text-xs flex gap-4">
-              <span className="text-ink-500">User: <span className="text-gold-400">{scanResult.user}</span></span>
-              <span className="text-ink-500">Open ports: <span className="text-gold-400">{scanResult.open_ports?.length || 0}</span></span>
+              <span className="text-ink-500">User: <span className="text-gold-700">{scanResult.user}</span></span>
+              <span className="text-ink-500">Open ports: <span className="text-gold-700">{scanResult.open_ports?.length || 0}</span></span>
               <Badge variant="success">{scanResult.status}</Badge>
             </div>
           )}
