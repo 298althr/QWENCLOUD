@@ -7,8 +7,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader, SectionCard, MetricCard, StatusPill, ConfidenceMeter } from "@/components/design-system";
-import { SlidersHorizontal, DollarSign, Gauge, Zap, RefreshCw, Cpu, FlaskConical, AlertTriangle } from "lucide-react";
+import { SlidersHorizontal, DollarSign, Gauge, Zap, RefreshCw, Cpu, FlaskConical, AlertTriangle, Key } from "lucide-react";
 import { api } from "@/lib/api";
+import { SecretText, SecretField } from "@/components/SecretField";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -116,6 +117,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="agent"><SlidersHorizontal className="mr-2 h-4 w-4" /> Agent Config</TabsTrigger>
           <TabsTrigger value="usage"><DollarSign className="mr-2 h-4 w-4" /> AI Usage & Costs</TabsTrigger>
+          <TabsTrigger value="secrets"><Key className="mr-2 h-4 w-4" /> API Keys & Secrets</TabsTrigger>
         </TabsList>
 
         <TabsContent value="agent" className="mt-4">
@@ -367,6 +369,42 @@ export default function SettingsPage() {
               <p className="text-sm text-ink-600">{loadingUsage ? "Loading usage data..." : "No usage data available. Make some API calls to see metrics."}</p>
             </SectionCard>
           )}
+        </TabsContent>
+
+        <TabsContent value="secrets" className="mt-4">
+          <SectionCard
+            title="API Keys & Secrets"
+            description="Environment variables and API keys loaded on the server. Click the eye icon to reveal or hide values."
+            delay={0.1}
+          >
+            <div className="space-y-3">
+              <SecretText label="DASHSCOPE_API_KEY" value={process.env.NEXT_PUBLIC_DASHSCOPE_KEY || ""} />
+              <SecretText label="QWEN_BASE_URL" value="https://dashscope-intl.aliyuncs.com/compatible-mode/v1" />
+              <SecretText label="DATABASE_URL" value={process.env.NEXT_PUBLIC_DB_URL || ""} />
+              <SecretText label="REDIS_URL" value={process.env.NEXT_PUBLIC_REDIS_URL || ""} />
+              <SecretText label="JWT_SECRET" value={process.env.NEXT_PUBLIC_JWT_SECRET || ""} />
+              <SecretText label="TELEGRAM_BOT_TOKEN" value={process.env.NEXT_PUBLIC_TELEGRAM_TOKEN || ""} />
+
+              <div className="mt-4 rounded-lg border border-ink-800 bg-ink-950/30 p-3">
+                <p className="text-xs text-ink-600">
+                  Secrets are stored as environment variables on the Alibaba ECS instance. They are never committed to GitHub.
+                  Use the .env file on the server to manage these values. The .env.example file in the repo contains blank
+                  placeholders for reference.
+                </p>
+              </div>
+
+              <div className="mt-2 space-y-2">
+                <h4 className="text-sm font-medium text-ink-300">Secret Management Checklist</h4>
+                <ul className="space-y-1 text-xs text-ink-500">
+                  <li className="flex items-start gap-2"><span className="text-status-ok shrink-0">-</span> .env and .env.dev are in .gitignore</li>
+                  <li className="flex items-start gap-2"><span className="text-status-ok shrink-0">-</span> .env.example has blank values only</li>
+                  <li className="flex items-start gap-2"><span className="text-status-ok shrink-0">-</span> Real keys are set via SSH on the ECS instance</li>
+                  <li className="flex items-start gap-2"><span className="text-status-ok shrink-0">-</span> Docker Compose reads from the .env file at runtime</li>
+                  <li className="flex items-start gap-2"><span className="text-status-ok shrink-0">-</span> No secrets appear in the GitHub repository</li>
+                </ul>
+              </div>
+            </div>
+          </SectionCard>
         </TabsContent>
 
       </Tabs>

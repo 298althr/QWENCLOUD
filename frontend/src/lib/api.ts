@@ -198,4 +198,17 @@ export const api = {
     fetchAPI(`/deployments/${id}/logs${tail ? `?tail=${tail}` : ""}`),
   deploymentAction: (id: string, action: "start" | "stop" | "restart" | "remove") =>
     fetchAPI(`/deployments/${id}/action`, { method: "POST", body: JSON.stringify({ action }) }),
+
+  // Deployment validation, webhook, investigation
+  validateRepoUrl: (repo_url: string) =>
+    fetchAPI("/deployments/validate-url", { method: "POST", body: JSON.stringify({ repo_url }) }),
+  getWebhookConfigs: () => fetchAPI("/deployments/webhook/config"),
+  saveWebhookConfig: (data: { repo_url: string; autoRebuild?: boolean; env_vars?: string[] }) =>
+    fetchAPI("/deployments/webhook/config", { method: "POST", body: JSON.stringify(data) }),
+  investigateFailure: (data: { repo_url?: string; failure_data?: any }) =>
+    fetchAPI("/deployments/investigate", { method: "POST", body: JSON.stringify(data) }),
+  getDeploymentReports: (limit?: number) =>
+    fetchAPI(`/deployments/reports${limit ? `?limit=${limit}` : ""}`),
+  getDeploymentReportsForRepo: (repoUrl: string) =>
+    fetchAPI(`/deployments/reports/${encodeURIComponent(repoUrl)}`),
 };

@@ -1,0 +1,47 @@
+The containers are running but the source code directory is gone. Let me check the bash history to understand how they were originally deployed, then clone fresh from GitHub.
+
+Found it. The project is at `/opt/althr-autopilot`, not `/root/QWENCLOUD/TRACK4`. Let me pull the latest code and rebuild:
+
+SSH from my side keeps getting disconnected (password prompt). You already have an SSH session open in your terminal. Run these commands in your SSH session:
+
+**Step 1: Go to the project directory and check current state**
+```bash
+cd /opt/althr-autopilot
+git status
+git log --oneline -3
+```
+
+**Step 2: Pull the latest code from GitHub**
+```bash
+git pull origin track4
+```
+
+**Step 3: Check if PUBLIC_URL is in your .env**
+```bash
+grep PUBLIC_URL .env
+```
+If it's missing or set to localhost, add it:
+```bash
+echo 'PUBLIC_URL=http://47.84.106.210:3000' >> .env
+```
+
+**Step 4: Stop old containers and rebuild**
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+**Step 5: Verify the new endpoints work**
+```bash
+curl http://localhost:3000/api/health
+curl http://localhost:3000/api/approvals/history
+curl http://localhost:3000/api/settings/kill-switch
+curl http://localhost:3000/api/terminal/logs
+```
+
+**Step 6: Check all containers are healthy**
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
+Paste the output back to me and I'll verify everything is working.

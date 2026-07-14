@@ -1,6 +1,10 @@
 // backend/src/routes/deploy.js
 // POST /api/deployments       — deploy from GitHub repo (git clone + docker build)
 // GET  /api/deployments       — list deployment history
+// POST /api/deployments/webhook — GitHub webhook listener for auto-rebuild on push
+// POST /api/deployments/validate-url — validate a GitHub repo URL before deploying
+// POST /api/deployments/investigate — AI-powered deployment failure investigation
+// GET  /api/deployments/reports/:repoUrl — get deployment reports for a repo
 
 const express = require("express");
 const router = express.Router();
@@ -9,6 +13,11 @@ const { safCheck } = require("../pipeline/saf");
 const { audit } = require("../utils/audit");
 const { query } = require("../db/pool");
 const { getContainerLogs, containerAction } = require("../utils/docker");
+
+// In-memory store for webhook configs and deployment reports
+// In production these would go to Postgres but in-memory is fine for the hackathon
+const webhookConfigs = new Map();
+const deploymentReports = [];
 
 router.post("/", async (req, res) => {
   const { repo_url, port, env_vars } = req.body || {};
@@ -195,5 +204,464 @@ router.post("/:id/action", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+/**
+ * POST /api/deployments/validate-url
+ * Body: { repo_url: string }
+ * Validates a GitHub repo URL is accessible and returns repo metadata.
+ */
+router.post("/validate-url", async (req, res) => {
+  const { repo_url } = req.body || {};
+  if (!repo_url) return res.status(400).json({ error: "repo_url is required" });
+
+  try {
+    const url = new URL(repo_url);
+    if (!url.hostname.includes("github.com")) {
+      return res.status(400).json({ valid: false, error: "URL must be a GitHub repository" });
+    }
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts.length < 2) {
+      return res.status(400).json({ valid: false, error: "Invalid repo path" });
+    }
+
+    const owner = parts[0];
+    const repo = parts[1].replace(/\.git$/, "");
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
+
+    const resp = await fetch(apiUrl, {
+      headers: { "User-Agent": "althr-autopilot" },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (resp.status === 404) {
+      return res.json({ valid: false, error: "Repository not found or is private" });
+    }
+    if (!resp.ok) {
+      return res.json({ valid: false, error: `GitHub API returned ${resp.status}` });
+    }
+
+    const data = await resp.json();
+    res.json({
+      valid: true,
+      owner,
+      repo,
+      full_name: data.full_name,
+      description: data.description,
+      default_branch: data.default_branch,
+      private: data.private,
+      stars: data.stargazers_count,
+      language: data.language,
+      clone_url: data.clone_url,
+    });
+  } catch (e) {
+    if (e.name === "TypeError") {
+      return res.status(400).json({ valid: false, error: "Invalid URL format" });
+    }
+    res.status(500).json({ valid: false, error: e.message });
+  }
+});
+
+/**
+ * POST /api/deployments/webhook
+ * GitHub webhook receiver. Triggers auto-rebuild when a push event is received.
+ * Body: GitHub webhook payload (push event)
+ * Header: X-GitHub-Event: push
+ */
+router.post("/webhook", async (req, res) => {
+  const event = req.headers["x-github-event"];
+  const payload = req.body;
+
+  if (!event) {
+    return res.status(400).json({ error: "Missing X-GitHub-Event header" });
+  }
+
+  if (event === "ping") {
+    return res.json({ ok: true, message: "Webhook ping received. Webhook is configured correctly." });
+  }
+
+  if (event !== "push") {
+    return res.json({ ok: true, message: `Received ${event} event. Only push triggers rebuild.` });
+  }
+
+  const repoUrl = payload?.repository?.clone_url;
+  const repoName = payload?.repository?.full_name;
+  const pushedBy = payload?.pusher?.name || "unknown";
+  const ref = payload?.ref || "unknown";
+  const commit = payload?.after?.substring(0, 7) || "unknown";
+
+  if (!repoUrl) {
+    return res.status(400).json({ error: "No repository URL in payload" });
+  }
+
+  // Check if this repo has auto-rebuild enabled
+  const config = webhookConfigs.get(repoUrl);
+  if (!config || !config.autoRebuild) {
+    return res.json({ ok: true, message: "Push received but auto-rebuild is not enabled for this repo." });
+  }
+
+  // Acknowledge immediately, rebuild async
+  res.json({
+    ok: true,
+    message: `Push received from ${repoName} by ${pushedBy}. Rebuild triggered.`,
+    commit,
+    ref,
+  });
+
+  // Trigger async rebuild
+  (async () => {
+    try {
+      console.log(`[webhook] Auto-rebuild triggered for ${repoUrl} (commit ${commit})`);
+      const result = await deployFromRepo({ repo_url: repoUrl, env_vars: config.envVars || [] });
+
+      await audit({
+        operation: "execute",
+        actor: `webhook:${pushedBy}`,
+        target: repoUrl,
+        target_type: "deployment",
+        reasoning: result.success
+          ? `Auto-rebuild succeeded: ${result.stack} on port ${result.hostPort}`
+          : `Auto-rebuild failed at ${result.stage}: ${result.error}`,
+        result: result.success ? "success" : "failure",
+      });
+
+      if (!result.success) {
+        // Auto-trigger AI investigation
+        console.log(`[webhook] Build failed, triggering AI investigation...`);
+        await investigateFailure(repoUrl, result);
+      }
+
+      console.log(`[webhook] Auto-rebuild complete: ${result.success ? "success" : "failed"}`);
+    } catch (e) {
+      console.error(`[webhook] Auto-rebuild error:`, e.message);
+    }
+  })();
+});
+
+/**
+ * GET /api/deployments/webhook/config
+ * Returns all webhook configs (with secrets masked).
+ */
+router.get("/webhook/config", (req, res) => {
+  const configs = [];
+  for (const [url, cfg] of webhookConfigs.entries()) {
+    configs.push({
+      repo_url: url,
+      autoRebuild: cfg.autoRebuild,
+      envVarsCount: cfg.envVars?.length || 0,
+      createdAt: cfg.createdAt,
+    });
+  }
+  res.json({ configs, count: configs.length });
+});
+
+/**
+ * POST /api/deployments/webhook/config
+ * Body: { repo_url, autoRebuild, env_vars }
+ * Registers or updates a webhook config for auto-rebuild.
+ */
+router.post("/webhook/config", (req, res) => {
+  const { repo_url, autoRebuild, env_vars } = req.body || {};
+  if (!repo_url) return res.status(400).json({ error: "repo_url is required" });
+
+  webhookConfigs.set(repo_url, {
+    autoRebuild: autoRebuild !== false,
+    envVars: env_vars || [],
+    createdAt: new Date().toISOString(),
+  });
+
+  res.json({ ok: true, message: `Webhook config saved for ${repo_url}` });
+});
+
+/**
+ * POST /api/deployments/investigate
+ * Body: { repo_url, failure_data }
+ * AI-powered investigation of a deployment failure.
+ * Uses Qwen to analyze the error and produce a problem/solution report.
+ */
+router.post("/investigate", async (req, res) => {
+  const { repo_url, failure_data } = req.body || {};
+  if (!repo_url && !failure_data) {
+    return res.status(400).json({ error: "repo_url or failure_data is required" });
+  }
+
+  try {
+    const report = await investigateFailure(repo_url, failure_data);
+    res.json(report);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * GET /api/deployments/reports
+ * Returns all deployment investigation reports.
+ */
+router.get("/reports", (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
+  const reports = deploymentReports.slice(-limit).reverse();
+  res.json({ reports, count: reports.length });
+});
+
+/**
+ * GET /api/deployments/reports/:repoUrl
+ * Returns deployment reports for a specific repo.
+ */
+router.get("/reports/:repoUrl", (req, res) => {
+  const repo = decodeURIComponent(req.params.repoUrl);
+  const reports = deploymentReports.filter((r) => r.repo_url === repo);
+  res.json({ reports, count: reports.length });
+});
+
+/**
+ * AI-powered deployment failure investigation.
+ * Collects build error data, sends to Qwen for analysis.
+ * Returns a structured problem/solution report in plain English.
+ */
+async function investigateFailure(repoUrl, failureData) {
+  const { qwen, selectModel, MODELS } = require("../qwen/client");
+  const { guardedCreate } = require("../qwen/guardrails");
+
+  const stage = failureData?.stage || "unknown";
+  const error = failureData?.error || "No error details provided";
+  const findings = failureData?.findings || [];
+
+  // Gather context about the failure
+  const errorContext = [
+    `Repository: ${repoUrl}`,
+    `Failed at stage: ${stage}`,
+    `Error output:`,
+    error.substring(0, 3000),
+  ];
+
+  if (findings.length > 0) {
+    errorContext.push(`File audit findings:`);
+    findings.forEach((f) => errorContext.push(`- [${f.severity}] ${f.message}`));
+  }
+
+  // Classify the error type
+  let errorType = "unknown";
+  const lowerError = error.toLowerCase();
+  if (lowerError.includes("npm err") || lowerError.includes("pnpm") || lowerError.includes("yarn")) {
+    errorType = "dependency";
+  } else if (lowerError.includes("syntaxerror") || lowerError.includes("typeerror") || lowerError.includes("referenceerror")) {
+    errorType = "code";
+  } else if (lowerError.includes("econnrefused") || lowerError.includes("database") || lowerError.includes("postgres") || lowerError.includes("redis")) {
+    errorType = "database";
+  } else if (lowerError.includes("cannot find module") || lowerError.includes("module not found")) {
+    errorType = "dependency";
+  } else if (lowerError.includes("port") && lowerError.includes("allocated")) {
+    errorType = "port";
+  } else if (lowerError.includes("dockerfile") || lowerError.includes("build failed")) {
+    errorType = "dockerfile";
+  } else if (lowerError.includes("permission") || lowerError.includes("denied")) {
+    errorType = "permission";
+  } else if (stage === "clone") {
+    errorType = "git";
+  }
+
+  const systemPrompt = `You are a deployment failure analyst. Analyze build errors and produce a concise report.
+Rules:
+- State the problem in simple English. No jargon.
+- List possible causes as bullet points.
+- List solutions for each cause as bullet points.
+- Do not use emojis, em dashes, or filler language.
+- Keep the report under 500 words.
+- Format as JSON with fields: problem_statement (string), error_type (string), possible_causes (array of strings), solutions (array of strings), recommended_action (string)`;
+
+  const userPrompt = `Analyze this deployment failure and produce a report.
+
+${errorContext.join("\n")}
+
+Classified error type: ${errorType}
+
+Respond as JSON only.`;
+
+  let report;
+  try {
+    const model = selectModel("moderate") || MODELS.PLUS;
+    const response = await guardedCreate(qwen, {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 800,
+      temperature: 0.3,
+    }, { module: "deploy-investigate", taskType: "moderate" });
+
+    const content = response?.choices?.[0]?.message?.content || "{}";
+    // Extract JSON from response (handle markdown code blocks)
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    report = jsonMatch ? JSON.parse(jsonMatch[0]) : {
+      problem_statement: content.substring(0, 500),
+      error_type: errorType,
+      possible_causes: ["Unable to parse AI response"],
+      solutions: ["Review the raw error output manually"],
+      recommended_action: "Check build logs",
+    };
+  } catch (e) {
+    // If Qwen fails, produce a rule-based report
+    report = generateRuleBasedReport(errorType, stage, error, findings);
+  }
+
+  // Enrich with metadata
+  report.repo_url = repoUrl;
+  report.stage = stage;
+  report.error_type = report.error_type || errorType;
+  report.raw_error = error.substring(0, 500);
+  report.timestamp = new Date().toISOString();
+  report.id = `rpt_${Date.now().toString(36)}`;
+
+  // Store the report
+  deploymentReports.push(report);
+
+  // Audit
+  try {
+    await audit({
+      operation: "investigate",
+      actor: "ai",
+      target: repoUrl,
+      target_type: "deployment",
+      reasoning: `Investigated ${errorType} failure at ${stage}: ${report.problem_statement?.substring(0, 100)}`,
+      result: "success",
+    });
+  } catch (e) {
+    console.warn("[deploy] audit failed:", e.message);
+  }
+
+  return report;
+}
+
+/**
+ * Rule-based fallback report generator when Qwen is unavailable.
+ */
+function generateRuleBasedReport(errorType, stage, error, findings) {
+  const reports = {
+    dependency: {
+      problem_statement: "The build failed because one or more dependencies could not be installed or resolved.",
+      possible_causes: [
+        "A package version in package.json or requirements.txt does not exist or has been removed",
+        "The lockfile is out of date and references old package versions",
+        "A private package registry is not accessible from the build environment",
+        "Node.js or Python version mismatch between local and build environment",
+      ],
+      solutions: [
+        "Delete the lockfile and regenerate it with npm install or pip install",
+        "Check that all package versions in the manifest are valid and published",
+        "If using private packages, add the registry credentials as build arguments",
+        "Pin the Node.js or Python version in the Dockerfile to match your local version",
+      ],
+      recommended_action: "Run npm install locally to verify dependencies resolve, then commit the updated lockfile.",
+    },
+    code: {
+      problem_statement: "The build failed because of a syntax or type error in the source code.",
+      possible_causes: [
+        "A syntax error in the code that was not caught locally",
+        "A TypeScript type error that only appears in strict build mode",
+        "An import statement referencing a file that does not exist",
+        "A variable or function used before it was defined",
+      ],
+      solutions: [
+        "Run the build command locally and fix the reported errors",
+        "Check that all import paths are correct and files exist",
+        "Run the linter to catch common mistakes before building",
+        "Add the missing type definitions for external packages",
+      ],
+      recommended_action: "Run npm run build or tsc locally, fix all errors, then push again.",
+    },
+    database: {
+      problem_statement: "The application started but could not connect to the database or required data service.",
+      possible_causes: [
+        "The database URL or connection string is not set in environment variables",
+        "The database service is not running or is on a different port",
+        "Network rules block the connection between the app and database containers",
+        "The database credentials are wrong or the user lacks permissions",
+      ],
+      solutions: [
+        "Set the DATABASE_URL or equivalent environment variable in the deployment config",
+        "Verify the database container is running and healthy before starting the app",
+        "Check that both containers are on the same Docker network",
+        "Test the database credentials with a direct connection from the app container",
+      ],
+      recommended_action: "Check environment variables for database connection settings and verify the database is running.",
+    },
+    port: {
+      problem_statement: "The container could not start because the requested port is already in use.",
+      possible_causes: [
+        "Another container or process is using the same port",
+        "A previous deployment was not cleaned up properly",
+        "The port was hardcoded instead of using an environment variable",
+      ],
+      solutions: [
+        "Let the deploy engine auto-assign a port instead of specifying one",
+        "Stop the container using the port: docker stop $(docker ps -q --filter publish=<port>)",
+        "Use a different port number for this deployment",
+      ],
+      recommended_action: "Remove the port parameter and let the system find a free port automatically.",
+    },
+    dockerfile: {
+      problem_statement: "The Docker build failed because of a missing or invalid Dockerfile.",
+      possible_causes: [
+        "No Dockerfile exists in the repository root",
+        "The Dockerfile has syntax errors or invalid instructions",
+        "The Dockerfile references files that do not exist in the build context",
+        "The base image does not exist or is not accessible",
+      ],
+      solutions: [
+        "Add a Dockerfile in the repository root, or let the deploy engine generate one",
+        "Check each instruction in the Dockerfile for typos or invalid syntax",
+        "Verify that all COPY and ADD paths point to files that exist",
+        "Use a valid base image tag from Docker Hub",
+      ],
+      recommended_action: "Review the Dockerfile syntax or remove it to let the system auto-generate one.",
+    },
+    git: {
+      problem_statement: "The repository could not be cloned from GitHub.",
+      possible_causes: [
+        "The repository URL is incorrect or the repo has been deleted",
+        "The repository is private and requires authentication",
+        "The server cannot reach github.com due to network restrictions",
+        "The default branch name is different from what was expected",
+      ],
+      solutions: [
+        "Verify the URL opens in a browser",
+        "If the repo is private, add a deploy key or access token",
+        "Check network connectivity to github.com from the server",
+        "Specify the correct branch in the deploy request",
+      ],
+      recommended_action: "Open the repo URL in a browser to verify it is accessible.",
+    },
+    permission: {
+      problem_statement: "The build or run failed because of a file permission error.",
+      possible_causes: [
+        "The Dockerfile runs as a user that does not have write access to required directories",
+        "A file or directory in the repository has restrictive permissions",
+        "The build context includes files owned by root that cannot be read",
+      ],
+      solutions: [
+        "Add a RUN chmod or chown instruction in the Dockerfile",
+        "Run the container as root or add the user to the correct group",
+        "Check file permissions in the repository and fix any that are too restrictive",
+      ],
+      recommended_action: "Add chmod commands to the Dockerfile to fix permissions during build.",
+    },
+  };
+
+  return reports[errorType] || {
+    problem_statement: `The deployment failed at the ${stage} stage. The error output indicates an unexpected issue.`,
+    possible_causes: [
+      "An unexpected error occurred during the build or run process",
+      "The error may be related to the project configuration or environment",
+      "Review the raw error output for specific details",
+    ],
+    solutions: [
+      "Read the full error output to identify the specific failure point",
+      "Try building the project locally with the same command to reproduce",
+      "Check that all required environment variables are set",
+    ],
+    recommended_action: "Review the raw error output and identify the specific line that caused the failure.",
+  };
+}
 
 module.exports = router;
