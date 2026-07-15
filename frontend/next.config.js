@@ -15,6 +15,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  output: "standalone",
   async rewrites() {
     const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
     return [
