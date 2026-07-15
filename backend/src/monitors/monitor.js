@@ -37,7 +37,7 @@ const THRESHOLDS = {
   DISK_PERCENT: Number(process.env.THRESHOLD_DISK || 85),
 };
 
-const POLL_INTERVAL_MS = Number(process.env.MONITOR_INTERVAL_MS || 30000);
+const POLL_INTERVAL_MS = Number(process.env.MONITOR_INTERVAL_MS || 60000);
 
 // Anomaly cooldown: don't re-diagnose the same anomaly type within this window
 const ANOMALY_COOLDOWN_MS = Number(process.env.ANOMALY_COOLDOWN_MS || 5 * 60 * 1000);
@@ -51,6 +51,7 @@ const state = {
   intervalId: null,
   io: null,
   anomalyCooldowns: new Map(),
+  tickCount: 0,
 };
 
 /**
@@ -77,6 +78,7 @@ function stop() {
  * Single monitoring tick: collect metrics, detect anomalies, trigger diagnosis.
  */
 async function tick() {
+  state.tickCount++;
   // Kill switch: skip all anomaly handling if AI is halted
   const killSwitchActive = tokenTracker.isKillSwitchActive();
 
@@ -103,17 +105,30 @@ async function tick() {
 
 /**
  * Collect all server metrics in one pass.
+ * Expensive operations (processes, network connections) only run every 5th tick
+ * to avoid CPU feedback loops on small instances.
  */
 async function collectMetrics() {
-  const [cpuLoad, mem, fsSize, procs, ports] = await Promise.all([
+  const doHeavy = state.tickCount % 5 === 0;
+
+  const [cpuLoad, mem, fsSize] = await Promise.all([
     si.currentLoad(),
     si.mem(),
     si.fsSize(),
-    si.processes().catch(() => ({ list: [] })),
-    si.networkConnections().catch(() => []),
   ]);
 
   const disk = fsSize[0] ? { used: fsSize[0].used, total: fsSize[0].size, percent: fsSize[0].use } : null;
+
+  let processes = [];
+  let ports = [];
+  if (doHeavy) {
+    const [procs, netConns] = await Promise.all([
+      si.processes().catch(() => ({ list: [] })),
+      si.networkConnections().catch(() => []),
+    ]);
+    processes = procs.list || [];
+    ports = (netConns || []).filter((c) => c.state === "LISTEN");
+  }
 
   return {
     timestamp: new Date().toISOString(),
@@ -122,8 +137,8 @@ async function collectMetrics() {
     ram_used_mb: Math.round(mem.used / 1024 / 1024),
     ram_total_mb: Math.round(mem.total / 1024 / 1024),
     disk: disk ? disk.percent : null,
-    processes: procs.list || [],
-    ports: (ports || []).filter((c) => c.state === "LISTEN"),
+    processes,
+    ports,
   };
 }
 
