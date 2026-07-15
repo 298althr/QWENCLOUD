@@ -24,7 +24,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { sendAgentMessage } from "@/lib/websocket";
 import { toast } from "sonner";
-import { GlobalAlertBanner } from "@/components/design-system";
 
 const COMMAND_ITEMS = [
   { label: "Go to Overview", icon: <LayoutDashboard className="h-4 w-4" />, onSelect: () => window.location.href = "/", group: "Navigation" },
@@ -138,15 +137,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Sheet>
 
         <div className="flex flex-1 flex-col overflow-x-hidden">
-          {/* Demo alert banner — wire to real alerts later */}
-          <GlobalAlertBanner
-            severity="info"
-            title="Pro Max UI active"
-            message="New design system and shell components are live."
-            dismissible
-            className="flex-shrink-0"
-          />
-
           <TopBar
             onMenuClick={() => setMobileOpen(true)}
             onCommandPalette={() => setCmdOpen(true)}

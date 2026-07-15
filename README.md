@@ -1,6 +1,12 @@
-# ALTHR Autopilot — AI-Native Server Operations Agent
+# ALTHR Autopilot - AI-Native Server Operations Agent
 
 **Track 4: Autopilot Agent** | Global AI Hackathon Series with Qwen Cloud
+
+**Live Demo:** http://47.84.106.210:3000
+
+**Architecture Diagram:** [docs/architecture.svg](docs/architecture.svg) - Open in browser, or see [docs/architecture-diagram.md](docs/architecture-diagram.md)
+
+**Alibaba Cloud Proof:** [backend/src/utils/alibaba.js](backend/src/utils/alibaba.js) - ECS instance metadata, health check, and Cloud Monitor integration
 
 [![SOS Architecture](https://img.shields.io/badge/SOS-Architecture-100%25-success?style=flat&logo=architecture)](docs/sos-althr-mapping.md)
 [![SOS V2 UIK](https://img.shields.io/badge/SOS%20V2-UIK-2ECC71?style=flat)](docs/sos-althr-mapping.md)
@@ -17,7 +23,7 @@ ALTHR Autopilot transforms server operations from reactive firefighting to proac
 
 ### Key Features
 
-- **Continuous Monitoring**: Real-time tracking of CPU, memory, disk, Docker containers, processes, and network ports
+- **Continuous Monitoring**: Real-time tracking of CPU, memory, disk, network bandwidth, network latency, Docker containers, processes, ports, and OS info
 - **Decision Intelligence**: 7-layer pipeline (DRE → DREV → CRDS → DISC → DQS → Critique → Explainability) for root cause analysis
 - **Human-in-the-Loop**: Approval queue for high-risk actions with confidence-based auto-execute threshold
 - **7-Layer Security (SAF)**: Asset classification, identity checks, network segmentation, command whitelisting, immutable audit logging, blast radius containment, governance
@@ -25,6 +31,11 @@ ALTHR Autopilot transforms server operations from reactive firefighting to proac
 - **Remote SSH Management**: Generic remote host support — manage any Linux server via SSH from the web UI
 - **Telegram Bot Interface**: Mobile-first control with command execution, approvals, and alerts
 - **Alibaba Cloud Integration**: ECS deployment, OSS storage, Cloud Monitor metrics
+- **Multi-Stack Deployment Engine**: Clone from GitHub, detect stack (Node, Next.js, Python, FastAPI, Go, PHP, static HTML), auto-generate Dockerfile, build and run with health checks
+- **AI-Powered Failure Investigation**: When deployments fail, Qwen analyzes error output and generates a problem-solution report with rule-based fallback
+- **AI File Fixing**: Agent proposes specific file edits to fix build failures, requires human approval, applies the fix, and rebuilds
+- **GitHub Webhook Auto-Rebuild**: Configurable webhooks trigger automatic rebuilds on push
+- **Compliance Framework**: Audit trail, secret management, access control, data residency documentation, incident response
 
 ### Tech Stack
 

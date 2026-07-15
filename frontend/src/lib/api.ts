@@ -211,4 +211,12 @@ export const api = {
     fetchAPI(`/deployments/reports${limit ? `?limit=${limit}` : ""}`),
   getDeploymentReportsForRepo: (repoUrl: string) =>
     fetchAPI(`/deployments/reports/${encodeURIComponent(repoUrl)}`),
+
+  // AI file-fixing
+  proposeFix: (data: { clone_dir?: string; failure_data?: any; report?: any }) =>
+    fetchAPI("/deployments/propose-fix", { method: "POST", body: JSON.stringify(data) }),
+  applyFix: (data: { clone_dir: string; file_path: string; old_snippet?: string; new_snippet: string }) =>
+    fetchAPI("/deployments/apply-fix", { method: "POST", body: JSON.stringify(data) }),
+  rebuild: (data: { clone_dir: string; repo_url?: string; env_vars?: string[] }) =>
+    fetchAPI("/deployments/rebuild", { method: "POST", body: JSON.stringify(data) }),
 };

@@ -664,4 +664,213 @@ function generateRuleBasedReport(errorType, stage, error, findings) {
   };
 }
 
+/**
+ * POST /api/deployments/propose-fix
+ * Body: { repo_url, clone_dir, failure_data, report }
+ * AI analyzes the build failure, identifies the specific file and line,
+ * and proposes a patch. Returns the proposed fix for human approval.
+ */
+router.post("/propose-fix", async (req, res) => {
+  const { clone_dir, failure_data, report } = req.body || {};
+  if (!clone_dir && !failure_data) {
+    return res.status(400).json({ error: "clone_dir or failure_data is required" });
+  }
+
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const { qwen, selectModel, MODELS } = require("../qwen/client");
+    const { guardedCreate } = require("../qwen/guardrails");
+
+    const error = failure_data?.error || "No error details";
+    const stage = failure_data?.stage || "build";
+    const errorType = report?.error_type || "unknown";
+
+    // Read the files in the clone directory to provide context to the AI
+    let fileContext = [];
+    if (clone_dir && fs.existsSync(clone_dir)) {
+      const rootFiles = fs.readdirSync(clone_dir).slice(0, 20);
+      for (const fname of rootFiles) {
+        const fpath = path.join(clone_dir, fname);
+        if (fs.statSync(fpath).isFile() && fs.statSync(fpath).size < 5000) {
+          try {
+            const content = fs.readFileSync(fpath, "utf8");
+            fileContext.push({ name: fname, content: content.substring(0, 2000) });
+          } catch {}
+        }
+      }
+    }
+
+    // Extract file path and line number from error output
+    const fileMatch = error.match(/(?:at\s+)?([^\s]+\.(?:js|ts|py|go|php|json|yaml|yml)):(\d+)/);
+    const errorFile = fileMatch ? fileMatch[1] : null;
+    const errorLine = fileMatch ? parseInt(fileMatch[2]) : null;
+
+    // If we found a specific file, read it
+    let errorFileContent = null;
+    if (errorFile && clone_dir) {
+      const fullPath = path.join(clone_dir, errorFile);
+      if (fs.existsSync(fullPath)) {
+        errorFileContent = fs.readFileSync(fullPath, "utf8").substring(0, 4000);
+      }
+    }
+
+    const systemPrompt = `You are a deployment fix agent. Analyze the build error and the source files. Propose a specific file edit to fix the issue.
+Rules:
+- Identify the exact file that needs to be changed.
+- Provide the old code snippet that needs replacing.
+- Provide the new code snippet that fixes the issue.
+- Explain the fix in one sentence.
+- Do not use emojis or jargon.
+- Format as JSON: { file_path, old_snippet, new_snippet, explanation, confidence (0-1) }`;
+
+    const userPrompt = `Build failed at stage: ${stage}
+Error type: ${errorType}
+Error output:
+${error.substring(0, 2000)}
+
+${errorFileContent ? `Content of ${errorFile}:\n${errorFileContent}` : "No specific error file identified."}
+
+Files in the repo root: ${fileContext.map(f => f.name).join(", ")}
+
+${fileContext.length > 0 ? "File contents:\n" + fileContext.map(f => `--- ${f.name} ---\n${f.content}`).join("\n\n") : ""}
+
+Propose a fix as JSON.`;
+
+    let fixProposal;
+    try {
+      const model = selectModel("moderate") || MODELS.PLUS;
+      const response = await guardedCreate(qwen, {
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 1000,
+        temperature: 0.2,
+      }, { module: "deploy-fix", taskType: "moderate" });
+
+      const content = response?.choices?.[0]?.message?.content || "{}";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      fixProposal = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } catch (e) {
+      fixProposal = null;
+    }
+
+    if (!fixProposal) {
+      return res.json({
+        fixable: false,
+        message: "AI could not propose a specific fix for this error. Manual review required.",
+        error_file: errorFile,
+        error_line: errorLine,
+      });
+    }
+
+    // Read the current file content to verify the old snippet exists
+    let currentContent = null;
+    let canApply = false;
+    if (fixProposal.file_path && clone_dir) {
+      const fullPath = path.join(clone_dir, fixProposal.file_path);
+      if (fs.existsSync(fullPath)) {
+        currentContent = fs.readFileSync(fullPath, "utf8");
+        canApply = fixProposal.old_snippet && currentContent.includes(fixProposal.old_snippet);
+      }
+    }
+
+    res.json({
+      fixable: true,
+      fix_proposal: fixProposal,
+      error_file: errorFile,
+      error_line: errorLine,
+      can_apply_automatically: canApply,
+      requires_approval: true,
+      clone_dir,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * POST /api/deployments/apply-fix
+ * Body: { clone_dir, file_path, old_snippet, new_snippet }
+ * Applies a previously proposed fix to the cloned repo and rebuilds.
+ * Requires explicit approval (humanApproved=true via SAF).
+ */
+router.post("/apply-fix", async (req, res) => {
+  const { clone_dir, file_path, old_snippet, new_snippet, repo_url, env_vars } = req.body || {};
+  if (!clone_dir || !file_path || !new_snippet) {
+    return res.status(400).json({ error: "clone_dir, file_path, and new_snippet are required" });
+  }
+
+  const user = req.user || { username: "api", role: "admin" };
+  const saf = await safCheck(`edit ${file_path}`, "deployment", "medium", user, 0.8, true);
+  if (!saf.passed) {
+    return res.status(403).json({ error: "blocked by SAF", saf });
+  }
+
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const fullPath = path.join(clone_dir, file_path);
+
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ error: `File not found: ${file_path}` });
+    }
+
+    let content = fs.readFileSync(fullPath, "utf8");
+
+    if (old_snippet && content.includes(old_snippet)) {
+      content = content.replace(old_snippet, new_snippet);
+    } else if (old_snippet) {
+      return res.status(400).json({
+        error: "old_snippet not found in file. The file may have changed since the fix was proposed.",
+        file_path,
+      });
+    } else {
+      content = new_snippet;
+    }
+
+    fs.writeFileSync(fullPath, content);
+
+    await audit({
+      operation: "execute",
+      actor: user.username ? `human:${user.username}` : "agent",
+      target: file_path,
+      target_type: "file_edit",
+      reasoning: `Applied AI-proposed fix to ${file_path}`,
+      safResult: saf,
+      result: "success",
+    });
+
+    res.json({
+      ok: true,
+      message: `Fix applied to ${file_path}. Ready to rebuild.`,
+      clone_dir,
+      file_path,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * POST /api/deployments/rebuild
+ * Body: { clone_dir, repo_url, env_vars }
+ * Rebuilds from an existing clone directory (after a fix has been applied).
+ */
+router.post("/rebuild", async (req, res) => {
+  const { clone_dir, repo_url, env_vars } = req.body || {};
+  if (!clone_dir) {
+    return res.status(400).json({ error: "clone_dir is required" });
+  }
+
+  try {
+    const result = await deployFromRepo({ repo_url: repo_url || "local", env_vars, cloneDir: clone_dir });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

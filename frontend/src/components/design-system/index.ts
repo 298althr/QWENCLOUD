@@ -1,4 +1,4 @@
-// Pro Max design system components
+// Design system components
 export { PageHeader } from "./PageHeader";
 export { StatusPill, type StatusVariant } from "./StatusPill";
 export { MetricCard } from "./MetricCard";

@@ -22,6 +22,7 @@ import {
   Container,
   Network,
   ClipboardCheck,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -58,7 +59,10 @@ const GROUPS = [
   },
   {
     label: "System",
-    items: [{ href: "/settings", label: "Settings", icon: Settings }],
+    items: [
+      { href: "/compliance", label: "Compliance", icon: ScrollText },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ],
   },
 ];
 

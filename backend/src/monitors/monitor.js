@@ -35,6 +35,8 @@ const THRESHOLDS = {
   CPU_PERCENT: Number(process.env.THRESHOLD_CPU || 85),
   RAM_PERCENT: Number(process.env.THRESHOLD_RAM || 90),
   DISK_PERCENT: Number(process.env.THRESHOLD_DISK || 85),
+  NET_LATENCY_MS: Number(process.env.THRESHOLD_NET_LATENCY || 500),
+  NET_ERROR_RATE: Number(process.env.THRESHOLD_NET_ERRORS || 10),
 };
 
 const POLL_INTERVAL_MS = Number(process.env.MONITOR_INTERVAL_MS || 60000);
@@ -111,13 +113,39 @@ async function tick() {
 async function collectMetrics() {
   const doHeavy = state.tickCount % 5 === 0;
 
-  const [cpuLoad, mem, fsSize] = await Promise.all([
+  const [cpuLoad, mem, fsSize, netStats, osInfo] = await Promise.all([
     si.currentLoad(),
     si.mem(),
     si.fsSize(),
+    si.networkStats().catch(() => []),
+    si.osInfo().catch(() => null),
   ]);
 
   const disk = fsSize[0] ? { used: fsSize[0].used, total: fsSize[0].size, percent: fsSize[0].use } : null;
+
+  // Network stats: aggregate across all interfaces
+  let network = { rx_bytes: 0, tx_bytes: 0, rx_errors: 0, tx_errors: 0, ops: 0 };
+  if (netStats && netStats.length > 0) {
+    for (const iface of netStats) {
+      if (iface.iface === "lo") continue;
+      network.rx_bytes += iface.rx_bytes || 0;
+      network.tx_bytes += iface.tx_bytes || 0;
+      network.rx_errors += iface.rx_errors || 0;
+      network.tx_errors += iface.tx_errors || 0;
+      network.ops += iface.ops || 0;
+    }
+  }
+  network.rx_mb = Math.round(network.rx_bytes / 1024 / 1024);
+  network.tx_mb = Math.round(network.tx_bytes / 1024 / 1024);
+
+  // Network latency check (only on heavy ticks to avoid overhead)
+  let latency = null;
+  if (doHeavy) {
+    try {
+      latency = await si.inetLatency("8.8.8.8").catch(() => null);
+      if (latency !== null) latency = Number(latency.toFixed(2));
+    } catch {}
+  }
 
   let processes = [];
   let ports = [];
@@ -130,6 +158,25 @@ async function collectMetrics() {
     ports = (netConns || []).filter((c) => c.state === "LISTEN");
   }
 
+  // OS info (static, cache it)
+  if (!state.osInfo && osInfo) {
+    state.osInfo = {
+      platform: osInfo.platform,
+      distro: osInfo.distro,
+      release: osInfo.release,
+      kernel: osInfo.kernel,
+      hostname: osInfo.hostname,
+      arch: osInfo.arch,
+    };
+  }
+
+  // Uptime
+  let uptime_seconds = null;
+  try {
+    const time = si.time();
+    uptime_seconds = time.uptime;
+  } catch {}
+
   return {
     timestamp: new Date().toISOString(),
     cpu: Number(cpuLoad.currentLoad.toFixed(2)),
@@ -137,6 +184,10 @@ async function collectMetrics() {
     ram_used_mb: Math.round(mem.used / 1024 / 1024),
     ram_total_mb: Math.round(mem.total / 1024 / 1024),
     disk: disk ? disk.percent : null,
+    network,
+    latency_ms: latency,
+    os: state.osInfo,
+    uptime_seconds,
     processes,
     ports,
   };
@@ -200,6 +251,27 @@ function detectAnomalies(metrics) {
         data: { port: key, count },
       });
     }
+  }
+
+  // Network latency anomaly
+  if (metrics.latency_ms !== null && metrics.latency_ms > THRESHOLDS.NET_LATENCY_MS) {
+    anomalies.push({
+      type: "network_latency",
+      severity: "warning",
+      message: `Network latency at ${metrics.latency_ms}ms (threshold: ${THRESHOLDS.NET_LATENCY_MS}ms)`,
+      data: { latency_ms: metrics.latency_ms, threshold: THRESHOLDS.NET_LATENCY_MS },
+    });
+  }
+
+  // Network error rate anomaly
+  const totalErrors = (metrics.network?.rx_errors || 0) + (metrics.network?.tx_errors || 0);
+  if (totalErrors > THRESHOLDS.NET_ERROR_RATE) {
+    anomalies.push({
+      type: "network_errors",
+      severity: "warning",
+      message: `Network errors detected: ${totalErrors} rx/tx errors`,
+      data: { rx_errors: metrics.network?.rx_errors, tx_errors: metrics.network?.tx_errors },
+    });
   }
 
   return anomalies;
