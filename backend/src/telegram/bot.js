@@ -24,6 +24,19 @@ const ALLOWED = (process.env.TELEGRAM_ALLOWED_USERS || "")
 
 let bot = null;
 
+function getBot() { return bot; }
+
+async function sendTelegramMessage(chatId, text) {
+  if (!bot || !chatId) return false;
+  try {
+    await bot.sendMessage(chatId, text);
+    return true;
+  } catch (e) {
+    console.warn("[telegram] sendMessage failed:", e.message);
+    return false;
+  }
+}
+
 function start(io) {
   if (!TOKEN) {
     console.warn("[telegram] TELEGRAM_BOT_TOKEN not set — bot disabled");
@@ -356,4 +369,4 @@ function stop() {
   }
 }
 
-module.exports = { start, stop };
+module.exports = { start, stop, getBot, sendTelegramMessage };

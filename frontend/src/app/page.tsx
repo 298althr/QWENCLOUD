@@ -350,62 +350,65 @@ export default function HomePage() {
           </SectionCard>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <ApprovalCard />
-          <SectionCard
-            title="Simulate Incident"
-            description="Inject a synthetic anomaly to test the monitor"
-            delay={0.28}
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => simulate("cpu")}
-                disabled={simulating !== null}
-                className="justify-start"
-              >
-                <Cpu className="mr-2 h-4 w-4 text-status-warn" />
-                {simulating === "cpu" ? "Injecting…" : "CPU spike"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => simulate("ram")}
-                disabled={simulating !== null}
-                className="justify-start"
-              >
-                <MemoryStick className="mr-2 h-4 w-4 text-status-warn" />
-                {simulating === "ram" ? "Injecting…" : "RAM pressure"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => simulate("disk")}
-                disabled={simulating !== null}
-                className="justify-start"
-              >
-                <HardDrive className="mr-2 h-4 w-4 text-status-warn" />
-                {simulating === "disk" ? "Injecting…" : "Disk full"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => simulate("port")}
-                disabled={simulating !== null}
-                className="justify-start"
-              >
-                <Activity className="mr-2 h-4 w-4 text-status-warn" />
-                {simulating === "port" ? "Injecting…" : "Port conflict"}
-              </Button>
-            </div>
-          </SectionCard>
-          <SectionCard
-            title="System Controls"
-            description="Stop monitor and manage containers"
-            delay={0.36}
-          >
-            <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <SectionCard
+              title="Simulate Incident"
+              description="Inject a synthetic anomaly"
+              delay={0.28}
+              contentClassName="p-3"
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => simulate("cpu")}
+                  disabled={simulating !== null}
+                  className="justify-start"
+                >
+                  <Cpu className="mr-2 h-4 w-4 text-status-warn" />
+                  {simulating === "cpu" ? "Injecting…" : "CPU"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => simulate("ram")}
+                  disabled={simulating !== null}
+                  className="justify-start"
+                >
+                  <MemoryStick className="mr-2 h-4 w-4 text-status-warn" />
+                  {simulating === "ram" ? "Injecting…" : "RAM"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => simulate("disk")}
+                  disabled={simulating !== null}
+                  className="justify-start"
+                >
+                  <HardDrive className="mr-2 h-4 w-4 text-status-warn" />
+                  {simulating === "disk" ? "Injecting…" : "Disk"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => simulate("port")}
+                  disabled={simulating !== null}
+                  className="justify-start"
+                >
+                  <Activity className="mr-2 h-4 w-4 text-status-warn" />
+                  {simulating === "port" ? "Injecting…" : "Port"}
+                </Button>
+              </div>
+            </SectionCard>
+            <SectionCard
+              title="System Controls"
+              description="Monitor & containers"
+              delay={0.36}
+              contentClassName="p-3"
+            >
+            <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-ink-400">Monitor</span>
                 <Button
@@ -416,7 +419,7 @@ export default function HomePage() {
                   className="gap-1"
                 >
                   {monitorEnabled ? <Power className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                  {monitorEnabled === null ? "Loading" : monitorEnabled ? "Stop Monitor" : "Start Monitor"}
+                  {monitorEnabled === null ? "Loading" : monitorEnabled ? "Stop" : "Start"}
                 </Button>
               </div>
               <div className="space-y-1">
@@ -424,14 +427,14 @@ export default function HomePage() {
                 {containers.length === 0 ? (
                   <div className="text-sm text-ink-600">No containers running</div>
                 ) : (
-                  containers.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between rounded border border-ink-800 p-2">
-                      <div className="text-xs text-ink-300 truncate max-w-[100px]">{c.name}</div>
+                  containers.slice(0, 4).map((c) => (
+                    <div key={c.id} className="flex items-center justify-between rounded border border-ink-800 p-1.5">
+                      <div className="text-xs text-ink-300 truncate max-w-[90px]">{c.name}</div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Restart" onClick={() => containerAction(c.id, "restart")} disabled={containerLoading === `${c.id}-restart`}>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" title="Restart" onClick={() => containerAction(c.id, "restart")} disabled={containerLoading === `${c.id}-restart`}>
                           <RotateCcw className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-status-crit" title="Stop" onClick={() => containerAction(c.id, "stop")} disabled={containerLoading === `${c.id}-stop`}>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-status-crit" title="Stop" onClick={() => containerAction(c.id, "stop")} disabled={containerLoading === `${c.id}-stop`}>
                           <Power className="h-3 w-3" />
                         </Button>
                       </div>
@@ -441,29 +444,31 @@ export default function HomePage() {
               </div>
             </div>
           </SectionCard>
+          </div>
           <SectionCard
             title="System Status"
             description="Safety and routing indicators"
             delay={0.35}
+            contentClassName="p-3"
           >
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-400 flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> SAF guardrails</span>
+                <span className="text-ink-400 flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> SAF</span>
                 <StatusPill variant="ok">Active</StatusPill>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-400 flex items-center gap-2"><Zap className="h-4 w-4" /> Multi-model routing</span>
+                <span className="text-ink-400 flex items-center gap-2"><Zap className="h-4 w-4" /> Routing</span>
                 <StatusPill variant="ok">Active</StatusPill>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-400 flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Anomaly detection</span>
+                <span className="text-ink-400 flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Anomaly</span>
                 <StatusPill variant={overallStatus === "ok" ? "ok" : overallStatus} pulse={overallStatus !== "ok"}>
                   {overallStatus === "ok" ? "Nominal" : overallStatus === "warn" ? "Attention" : "Alert"}
                 </StatusPill>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-400 flex items-center gap-2"><Activity className="h-4 w-4" /> Decision pipeline</span>
-                <StatusPill variant="ai">DRE then DREV then CRDS</StatusPill>
+                <span className="text-ink-400 flex items-center gap-2"><Activity className="h-4 w-4" /> Pipeline</span>
+                <StatusPill variant="ai">DRE→DREV→CRDS</StatusPill>
               </div>
             </div>
           </SectionCard>

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { X, Cpu, MemoryStick, HardDrive, Loader2 } from "lucide-react";
+import { Cpu, MemoryStick, HardDrive, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ResourceDetailModalProps {
   type: "cpu" | "ram" | "disk" | null;
@@ -26,7 +27,7 @@ export default function ResourceDetailModal({ type, onClose }: ResourceDetailMod
       .finally(() => setLoading(false));
   }, [type]);
 
-  if (!type) return null;
+  const open = type !== null;
 
   const titles: Record<string, string> = {
     cpu: "CPU Details - Top 10 Processes",
@@ -40,25 +41,17 @@ export default function ResourceDetailModal({ type, onClose }: ResourceDetailMod
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="card w-full max-w-2xl max-h-[80vh] overflow-y-auto p-lg m-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-ink-100 flex items-center gap-2">
-            {icons[type]}
-            {titles[type]}
-          </h2>
-          <button onClick={onClose} className="text-ink-500 hover:text-ink-200 transition-colors">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[85vh] w-full max-w-2xl overflow-y-auto border border-ink-700 bg-ink-900 p-0 text-ink-200">
+        <DialogHeader className="border-b border-ink-700/60 px-6 py-4">
+          <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-ink-100">
+            {type && icons[type]}
+            {type && titles[type]}
+          </DialogTitle>
+        </DialogHeader>
 
-        {loading && (
+        <div className="px-6 py-4">
+          {loading && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-ink-500" />
             <span className="ml-2 text-ink-400">Loading...</span>
@@ -219,6 +212,7 @@ export default function ResourceDetailModal({ type, onClose }: ResourceDetailMod
           </div>
         )}
       </div>
-    </div>
-  );
+    </DialogContent>
+  </Dialog>
+);
 }

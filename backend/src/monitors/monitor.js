@@ -9,26 +9,28 @@
 //
 // On anomaly:
 //   1. Store in M1 (Raw Event)
-//   2. Check M3 for a known SOP (learning loop — skip Qwen if found)
-//   3. If no SOP: trigger Qwen diagnosis (qwen3.7-max + thinking + stream)
-//   4. Stream reasoning_content to dashboard via WebSocket
-//   5. Generate remediation plan via structured output
-//   6. Route through Certainty Pipeline
-//   7. Notify user via Telegram + Dashboard
+//   2. Classify incident severity and blast radius
+//   3. Check M3 for a known SOP (learning loop)
+//   4. If no SOP: trigger Qwen diagnosis (qwen3.7-max + thinking + stream)
+//   5. Stream reasoning_content to dashboard via WebSocket
+//   6. Route through SAF and escalation procedure
+//      - auto-execute low-risk / high-confidence actions
+//      - request human approval for medium-risk or medium-confidence actions
+//      - escalate on high-risk, SAF block, repeated failure, or approval timeout
+//   7. Check cascade effects via topology
+//   8. Notify user via Telegram + Dashboard
+//   9. Record resolution in M6 and update M3 SOP learning
 
 const si = require("systeminformation");
 const { v4: uuidv4 } = require("uuid");
 
 const memory = require("../memory/store");
-const { lookupSOP } = require("../memory/learning");
-const { runCertaintyPipeline } = require("../pipeline/certainty");
-const { safCheck } = require("../pipeline/saf");
-const { executeTool } = require("../qwen/toolExecutor");
 const { audit } = require("../utils/audit");
 const tokenTracker = require("../qwen/tokenTracker");
 const { addTerminalLog } = require("../utils/terminalLog");
 const { buildTopology, getImpactAnalysis } = require("../utils/topology");
 const { listAllContainers, getParsedStats } = require("../utils/docker");
+const incidentResponse = require("./incidentResponse");
 
 // Anomaly thresholds (configurable via env)
 const THRESHOLDS = {
@@ -280,8 +282,7 @@ function detectAnomalies(metrics) {
 }
 
 /**
- * Handle a detected anomaly: store M1, check M3 for known SOP, trigger
-// Qwen diagnosis if needed, stream reasoning, route through pipeline.
+ * Handle a detected anomaly using the formal incident-response escalation procedure.
  */
 async function handleAnomaly(anomaly, metrics, opts = {}) {
   const { skipCooldown = false, io: overrideIo = null } = opts;
@@ -303,7 +304,7 @@ async function handleAnomaly(anomaly, metrics, opts = {}) {
     emitIo.emit("anomaly_alert", { id: anomalyId, ...anomaly, timestamp: new Date().toISOString(), inCooldown });
   }
 
-  console.log(`[monitor] Anomaly: ${anomaly.type} — ${anomaly.message}${inCooldown ? " (cooldown, skipping Qwen)" : ""}`);
+  console.log(`[monitor] Anomaly: ${anomaly.type} — ${anomaly.message}${inCooldown ? " (cooldown, skipping)" : ""}`);
 
   // Emit action_update so the activity feed picks it up
   if (emitIo) {
@@ -317,113 +318,36 @@ async function handleAnomaly(anomaly, metrics, opts = {}) {
     });
   }
 
-  if (inCooldown) {
-    return;
-  }
+  if (inCooldown) return;
 
-  // 3. Check M3 for a known SOP (learning loop)
-  const { found, sop } = await lookupSOP(anomaly.type);
-  if (found) {
-    console.log(`[monitor] Known SOP found: ${sop.sop_name} (success_count=${sop.success_count})`);
-    if (emitIo) {
-      emitIo.emit("sop_match", { anomalyId, sop: { name: sop.sop_name, steps: sop.steps_json, successCount: sop.success_count } });
-    }
-    // Apply the known fix directly (still goes through SAF)
-    state.anomalyCooldowns.set(anomaly.type, now);
-    await applyKnownSOP(anomalyId, anomaly, sop, metrics, emitIo);
-    return;
-  }
-
-  // 4. No known SOP → trigger Qwen diagnosis with thinking + streaming
   state.anomalyCooldowns.set(anomaly.type, now);
-  await diagnoseWithQwen(anomalyId, anomaly, metrics, emitIo);
-}
 
-/**
- * Apply a known SOP from M3 (faster path — skips Qwen diagnosis).
- */
-async function applyKnownSOP(anomalyId, anomaly, sop, metrics, emitIo) {
-  const steps = Array.isArray(sop.steps_json) ? sop.steps_json : [];
-  const remediationStep = steps.find((s) => /apply|remediat|kill|restart/i.test(s.action || "")) || steps[steps.length - 1];
-  const action = remediationStep?.detail || remediationStep?.action || "apply known fix";
-
-  // SAF check
-  const saf = await safCheck(action, anomaly.type, "low", { username: "agent", role: "admin" }, 0.9, false);
-  if (!saf.passed) {
-    console.warn(`[monitor] SOP blocked by SAF: ${action}`);
-    await audit({ operation: "block", actor: "agent", target: action, target_type: "command", reasoning: "SOP blocked by SAF", safResult: saf, result: "blocked" });
-    return;
-  }
-
-  // Execute
-  const result = await executeTool("execute_command", { command: action, timeout: 10000 });
-  if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "sop_applied", action, result });
-
-  // Log to persistent terminal
-  addTerminalLog({
-    command: `[AI-SOP] ${action}`,
-    output: result.stdout || result.stderr || `exit code: ${result.exit_code}`,
-    exitCode: result.exit_code,
-    source: "ai",
-    io: emitIo,
-  }).catch(() => {});
-
-  await audit({ operation: "execute", actor: "agent", target: action, target_type: "command", reasoning: `Auto-applied SOP: ${sop.sop_name}`, safResult: saf, result: result.exit_code === 0 ? "success" : "failure" });
-}
-
-/**
- * Diagnose an anomaly with Qwen thinking mode + streaming.
- */
-async function diagnoseWithQwen(anomalyId, anomaly, metrics, emitIo) {
-  if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "diagnosing" });
-
-  const userMessage = `Anomaly detected: ${anomaly.type} — ${anomaly.message}. Current metrics: CPU=${metrics.cpu}%, RAM=${metrics.ram}%, Disk=${metrics.disk}%. Diagnose the root cause and propose a remediation action.`;
-
+  // 3. Run formal incident response: classify, remediate/approve/escalate
   try {
-    const pipeline = await runCertaintyPipeline({
-      userMessage,
-      serverState: metrics,
-      onChunk: (evt) => {
-        if (emitIo) {
-          emitIo.emit(evt.type === "reasoning" ? "reasoning_stream" : "response_stream", { anomalyId, chunk: evt.chunk });
-        }
-      },
-    });
-
+    const { incident, result } = await incidentResponse.handleIncident({ anomaly, metrics, emitIo });
     if (emitIo) {
       emitIo.emit("action_update", {
-        anomalyId,
-        stage: "diagnosis_complete",
-        confidence: pipeline.confidence,
-        risk_level: pipeline.risk_level,
-        action: pipeline.action,
-        authorization: pipeline.authorization_type,
+        stage: "incident_handled",
+        action: anomaly.type,
+        incident_id: incident.incident_id,
+        status: incident.status,
+        result,
+        timestamp: new Date().toISOString(),
       });
     }
 
-    // If auto-authorized, execute the remediation
-    if (pipeline.authorization_type === "auto" && pipeline.action) {
-      const saf = await safCheck(pipeline.action, anomaly.type, pipeline.risk_level, { username: "agent", role: "admin" }, pipeline.confidence, false);
-      if (saf.passed) {
-        const result = await executeTool("execute_command", { command: pipeline.action, timeout: 15000 });
-        if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "remediated", result });
-
-        // Log AI command to persistent terminal
-        addTerminalLog({
-          command: `[AI] ${pipeline.action}`,
-          output: result.stdout || result.stderr || `exit code: ${result.exit_code}`,
-          exitCode: result.exit_code,
-          source: "ai",
-          io: emitIo,
-        }).catch(() => {});
-
-        await audit({ operation: "execute", actor: "agent", target: pipeline.action, target_type: "command", reasoning: pipeline.reasoning, confidence: pipeline.confidence, safResult: saf, result: result.exit_code === 0 ? "success" : "failure" });
-      }
-    } else if (emitIo) {
-      emitIo.emit("approval_needed", { anomalyId, action: pipeline.action, confidence: pipeline.confidence, risk_level: pipeline.risk_level });
+    // 4. Check cascade effects after handling
+    const cascade = await checkCascadeEffects(anomaly, emitIo);
+    if (cascade.length > 0 && emitIo) {
+      emitIo.emit("action_update", {
+        stage: "cascade_check",
+        action: anomaly.type,
+        impacted: cascade,
+        timestamp: new Date().toISOString(),
+      });
     }
   } catch (e) {
-    console.error(`[monitor] Diagnosis failed for ${anomalyId}:`, e.message);
+    console.error(`[monitor] Incident handling failed for ${anomalyId}:`, e.message);
     if (emitIo) emitIo.emit("action_update", { anomalyId, stage: "error", error: e.message });
   }
 }

@@ -151,4 +151,7 @@ router.use("/chat-history", require("./chat-history"));
 // Monitor kill switch
 router.use("/monitor", require("./monitor").router);
 
+// Incident management
+router.use("/incidents", require("./incidents"));
+
 module.exports = router;
