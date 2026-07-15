@@ -141,5 +141,25 @@ ram = (used / mem.total) * 100</pre>
 <li>Submit on Devpost with all links</li>
 </ul>
 
+<h2>13. Top Bar Enhancement (July 15)</h2>
+<p>Previously only the Keyboard and Settings icons in the top bar were functional. The Bell, Help, and User icons are now fully interactive.</p>
+<table>
+<tr><th>Icon</th><th>Feature</th><th>Status</th></tr>
+<tr><td>Bell</td><td>Notification dropdown showing pending AI approvals (risk level, confidence, timestamp) and system monitoring alerts with severity badges.</td><td class="ok">Working</td></tr>
+<tr><td>Help (question mark)</td><td>9-step guided tour modal: Welcome → Dashboard → Activity Feed → Agent Console → Monitoring → Deployments → Memory → Security → Settings/Shortcuts. Each step has Continue/Back/Exit.</td><td class="ok">Working</td></tr>
+<tr><td>User</td><td>Profile dropdown with name, role, bio, email, location, resume/portfolio summary, highlights, and CTA button to visit external portfolio.</td><td class="ok">Working</td></tr>
+</table>
+
+<h2>14. Files Changed - Top Bar</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>frontend/src/components/NotificationsDropdown.tsx</code></td><td>New notification dropdown component with pending approvals and system alerts.</td></tr>
+<tr><td><code>frontend/src/components/ProfileDropdown.tsx</code></td><td>New profile dropdown component with resume/portfolio CTA.</td></tr>
+<tr><td><code>frontend/src/components/GuidedTour.tsx</code></td><td>New 9-step guided tour modal component.</td></tr>
+<tr><td><code>frontend/src/config/profile.ts</code></td><td>Editable profile configuration (name, role, bio, resume highlights, portfolio URL).</td></tr>
+<tr><td><code>frontend/src/components/TopBar.tsx</code></td><td>Replaced static buttons with NotificationsDropdown, GuidedTour trigger, and ProfileDropdown.</td></tr>
+<tr><td><code>frontend/src/components/AppShell.tsx</code></td><td>Passed approvals and alerts from agent store into TopBar.</td></tr>
+</table>
+
 </body>
 </html>
