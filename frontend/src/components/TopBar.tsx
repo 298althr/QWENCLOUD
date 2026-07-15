@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, Command, Wifi, WifiOff, Settings, Loader2, Bell, Search, User, HelpCircle, Keyboard } from "lucide-react";
+import { Menu, Command, Wifi, WifiOff, Settings, Loader2, Search, Keyboard } from "lucide-react";
 import Link from "next/link";
 import { onConnectionStatus, type ConnectionStatus } from "@/lib/websocket";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import NotificationsDropdown from "./NotificationsDropdown";
+import ProfileDropdown from "./ProfileDropdown";
+import GuidedTour from "./GuidedTour";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Overview",
@@ -21,16 +24,34 @@ const ROUTE_LABELS: Record<string, string> = {
   "/settings": "Settings",
 };
 
+interface ApprovalItem {
+  action_id: string;
+  action: string;
+  confidence: number;
+  risk_level: string;
+  timestamp: string;
+}
+
+interface AlertItem {
+  id: string;
+  type: string;
+  severity: string;
+  message: string;
+  timestamp: string;
+}
+
 interface TopBarProps {
   onMenuClick: () => void;
   onCommandPalette?: () => void;
   onShortcuts?: () => void;
-  alertCount?: number;
+  approvals?: ApprovalItem[];
+  alerts?: AlertItem[];
 }
 
-export default function TopBar({ onMenuClick, onCommandPalette, onShortcuts, alertCount = 0 }: TopBarProps) {
+export default function TopBar({ onMenuClick, onCommandPalette, onShortcuts, approvals = [], alerts = [] }: TopBarProps) {
   const pathname = usePathname();
   const [connStatus, setConnStatus] = useState<ConnectionStatus>("disconnected");
+  const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
     const off = onConnectionStatus((s) => setConnStatus(s));
@@ -44,7 +65,8 @@ export default function TopBar({ onMenuClick, onCommandPalette, onShortcuts, ale
       );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-700/40 bg-ink-900/95 px-4 backdrop-blur-md">
+    <>
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-700/40 bg-ink-900/95 px-4 backdrop-blur-md">
       <Button variant="ghost" size="icon" className="lg:hidden touch-target" onClick={onMenuClick}>
         <Menu className="h-5 w-5" />
       </Button>
@@ -90,23 +112,20 @@ export default function TopBar({ onMenuClick, onCommandPalette, onShortcuts, ale
         </div>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative touch-target">
-          <Bell className="h-4 w-4 text-ink-400" />
-          {alertCount > 0 && (
-            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-crit px-1 text-[10px] font-medium text-white">
-              {alertCount > 9 ? "9+" : alertCount}
-            </span>
-          )}
-        </Button>
+        <NotificationsDropdown approvals={approvals} alerts={alerts} />
 
         {/* Shortcuts */}
         <Button variant="ghost" size="icon" className="hidden touch-target sm:flex" onClick={onShortcuts}>
           <Keyboard className="h-4 w-4 text-ink-400" />
         </Button>
 
-        {/* Help */}
-        <Button variant="ghost" size="icon" className="hidden touch-target sm:flex">
-          <HelpCircle className="h-4 w-4 text-ink-400" />
+        {/* Help / Tour */}
+        <Button variant="ghost" size="icon" className="hidden touch-target sm:flex" onClick={() => setTourOpen(true)}>
+          <svg className="h-4 w-4 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
         </Button>
 
         {/* Settings */}
@@ -117,10 +136,11 @@ export default function TopBar({ onMenuClick, onCommandPalette, onShortcuts, ale
         </Link>
 
         {/* User */}
-        <Button variant="ghost" size="icon" className="touch-target">
-          <User className="h-4 w-4 text-ink-400" />
-        </Button>
+        <ProfileDropdown />
       </div>
     </header>
+
+    <GuidedTour open={tourOpen} onClose={() => setTourOpen(false)} />
+  </>
   );
 }

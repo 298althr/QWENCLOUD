@@ -24,6 +24,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { sendAgentMessage } from "@/lib/websocket";
 import { toast } from "sonner";
+import { useAgentStore } from "@/stores/agent-store";
 
 const COMMAND_ITEMS = [
   { label: "Go to Overview", icon: <LayoutDashboard className="h-4 w-4" />, onSelect: () => window.location.href = "/", group: "Navigation" },
@@ -58,6 +59,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const router = useRouter();
+  const { approvals, alerts } = useAgentStore();
 
   // Persist sidebar collapse state
   useEffect(() => {
@@ -141,7 +143,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onMenuClick={() => setMobileOpen(true)}
             onCommandPalette={() => setCmdOpen(true)}
             onShortcuts={() => setShortcutsOpen(true)}
-            alertCount={0}
+            approvals={approvals}
+            alerts={alerts}
           />
           <main className="flex-1">
             <div className="mx-auto max-w-[1440px] px-4 py-6 lg:px-6 lg:py-8 animate-fade-in">
