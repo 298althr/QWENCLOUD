@@ -14,6 +14,7 @@ interface MetricCardProps {
   status?: "ok" | "warn" | "crit" | "info";
   className?: string;
   delay?: number;
+  onClick?: () => void;
 }
 
 const statusColors = {
@@ -33,14 +34,17 @@ export function MetricCard({
   status = "info",
   className,
   delay = 0,
+  onClick,
 }: MetricCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay, ease: [0.4, 0, 0.2, 1] }}
+      onClick={onClick}
       className={cn(
         "card card-hover flex flex-col justify-between p-lg",
+        onClick && "cursor-pointer hover:border-ink-600 transition-colors",
         className
       )}
     >

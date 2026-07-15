@@ -11,6 +11,7 @@ import ApprovalCard from "@/components/ApprovalCard";
 import { Cpu, MemoryStick, HardDrive, Activity, CheckCircle2, AlertTriangle, ShieldCheck, Zap, Power, Play, RotateCcw, AlertOctagon, Boxes } from "lucide-react";
 import { toast } from "sonner";
 import type { ActivityItem } from "@/components/design-system";
+import ResourceDetailModal from "@/components/ResourceDetailModal";
 
 const MAX_POINTS = 60;
 
@@ -44,6 +45,7 @@ export default function HomePage() {
   const [killSwitchReason, setKillSwitchReason] = useState("");
   const [serviceHealth, setServiceHealth] = useState<any>(null);
   const [simulatingService, setSimulatingService] = useState<string | null>(null);
+  const [detailModal, setDetailModal] = useState<"cpu" | "ram" | "disk" | null>(null);
   const cpuHistory = useRef<{ time: string; value: number }[]>([]);
   const ramHistory = useRef<{ time: string; value: number }[]>([]);
   const diskHistory = useRef<{ time: string; value: number }[]>([]);
@@ -233,6 +235,7 @@ export default function HomePage() {
           status={cpuStatus}
           icon={<Cpu className="h-5 w-5" />}
           delay={0}
+          onClick={() => setDetailModal("cpu")}
         />
         <MetricCard
           title="RAM"
@@ -241,6 +244,7 @@ export default function HomePage() {
           status={ramStatus}
           icon={<MemoryStick className="h-5 w-5" />}
           delay={0.05}
+          onClick={() => setDetailModal("ram")}
         />
         <MetricCard
           title="Disk"
@@ -249,6 +253,7 @@ export default function HomePage() {
           status={diskStatus}
           icon={<HardDrive className="h-5 w-5" />}
           delay={0.1}
+          onClick={() => setDetailModal("disk")}
         />
         <MetricCard
           title="Pending Approvals"
@@ -464,6 +469,8 @@ export default function HomePage() {
           </SectionCard>
         </div>
       </section>
+
+      <ResourceDetailModal type={detailModal} onClose={() => setDetailModal(null)} />
     </div>
   );
 }

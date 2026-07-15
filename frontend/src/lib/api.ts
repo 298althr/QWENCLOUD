@@ -21,6 +21,9 @@ export const api = {
   // Health
   health: () => fetchAPI("/health"),
   serverHealth: () => fetchAPI("/health/server"),
+  cpuDetail: () => fetchAPI("/health/server/cpu"),
+  ramDetail: () => fetchAPI("/health/server/ram"),
+  diskDetail: () => fetchAPI("/health/server/disk"),
 
   // Agent
   agent: (message: string) =>

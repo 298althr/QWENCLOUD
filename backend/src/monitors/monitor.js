@@ -180,9 +180,11 @@ async function collectMetrics() {
   return {
     timestamp: new Date().toISOString(),
     cpu: Number(cpuLoad.currentLoad.toFixed(2)),
-    ram: Number(((mem.used / mem.total) * 100).toFixed(2)),
-    ram_used_mb: Math.round(mem.used / 1024 / 1024),
+    ram: Number((((mem.total - (mem.available || mem.free)) / mem.total) * 100).toFixed(2)),
+    ram_used_mb: Math.round((mem.total - (mem.available || mem.free)) / 1024 / 1024),
+    ram_available_mb: Math.round((mem.available || mem.free) / 1024 / 1024),
     ram_total_mb: Math.round(mem.total / 1024 / 1024),
+    ram_buff_cache_mb: Math.round((mem.used - (mem.total - (mem.available || mem.free))) / 1024 / 1024),
     disk: disk ? disk.percent : null,
     network,
     latency_ms: latency,
@@ -221,8 +223,8 @@ function detectAnomalies(metrics) {
     anomalies.push({
       type: "ram_pressure",
       severity: "critical",
-      message: `RAM at ${metrics.ram}% (${metrics.ram_used_mb}/${metrics.ram_total_mb} MB)`,
-      data: { ram: metrics.ram, used_mb: metrics.ram_used_mb, total_mb: metrics.ram_total_mb },
+      message: `RAM at ${metrics.ram}% (${metrics.ram_used_mb}/${metrics.ram_total_mb} MB, ${metrics.ram_available_mb} MB available)`,
+      data: { ram: metrics.ram, used_mb: metrics.ram_used_mb, available_mb: metrics.ram_available_mb, total_mb: metrics.ram_total_mb, buff_cache_mb: metrics.ram_buff_cache_mb },
     });
   }
 
