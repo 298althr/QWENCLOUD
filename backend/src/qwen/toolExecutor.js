@@ -158,10 +158,12 @@ async function get_server_health() {
     si.time(),
   ]);
   const disk = fsSize[0] ? { used: fsSize[0].used, total: fsSize[0].size, percent: fsSize[0].use } : null;
+  const used = mem.total - (mem.available || mem.free);
   return {
     cpu: Number(cpuLoad.currentLoad.toFixed(2)),
-    ram: Number(((mem.used / mem.total) * 100).toFixed(2)),
-    ram_used_mb: Math.round(mem.used / 1024 / 1024),
+    ram: Number(((used / mem.total) * 100).toFixed(2)),
+    ram_used_mb: Math.round(used / 1024 / 1024),
+    ram_available_mb: Math.round((mem.available || mem.free) / 1024 / 1024),
     ram_total_mb: Math.round(mem.total / 1024 / 1024),
     disk: disk ? disk.percent : null,
     uptime: time.uptime,
