@@ -2,7 +2,7 @@
 
 **Track 4: Autopilot Agent** | Global AI Hackathon Series with Qwen Cloud
 
-**Live Demo:** http://47.84.106.210:3000
+**Live Demo:** http://47.84.106.210:3001
 
 **Architecture Diagram:** [docs/architecture.svg](docs/architecture.svg) - Open in browser, or see [docs/architecture-diagram.md](docs/architecture-diagram.md)
 

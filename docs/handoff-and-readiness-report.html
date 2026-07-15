@@ -124,7 +124,7 @@ th { color: var(--muted); font-weight: 600; }
 
 <h1>ALTHR Autopilot - Handoff and Submission Readiness Report</h1>
 <p><strong>Track:</strong> Track 4 - Autopilot Agent | <strong>Hackathon:</strong> Global AI Hackathon Series with Qwen Cloud</p>
-<p><strong>Date:</strong> July 15, 2026 | <strong>ECS URL:</strong> http://47.84.106.210:3000</p>
+<p><strong>Date:</strong> July 15, 2026 | <strong>ECS URL:</strong> http://47.84.106.210:3001</p>
 
 <hr>
 
@@ -151,7 +151,7 @@ th { color: var(--muted); font-weight: 600; }
 <h2>2. What Is Working (Implemented and Verified)</h2>
 
 <div class="done-item">
-<p><strong>4 Docker containers running on Alibaba Cloud ECS</strong> - postgres, redis, backend (Express + Socket.io), frontend (Next.js). Health checks configured. Accessible at http://47.84.106.210:3000.</p>
+<p><strong>4 Docker containers running on Alibaba Cloud ECS</strong> - postgres, redis, backend (Express + Socket.io), frontend (Next.js). Health checks configured. Accessible at http://47.84.106.210:3001.</p>
 </div>
 
 <div class="done-item">
@@ -456,7 +456,7 @@ curl -s -X POST http://localhost:3000/api/deployments/validate-url \
 <h3>6.3 Key Environment Variables</h3>
 <pre>
 DASHSCOPE_API_KEY=sk-...           # Qwen API key
-PUBLIC_URL=http://47.84.106.210:3000
+PUBLIC_URL=http://47.84.106.210:3001
 DATABASE_URL=postgresql://althr:althr@postgres:5432/althr_autopilot
 REDIS_URL=redis://redis:6379
 MONITOR_INTERVAL_MS=60000          # Monitor poll interval
@@ -569,7 +569,7 @@ THRESHOLD_DISK=85                  # Disk alert threshold
 <li><strong>Compliance Framework:</strong> Immutable audit trail, command whitelist, secret management with hide/reveal UI, API key authentication, data residency documentation, and incident response procedures.</li>
 </ul>
 
-<p><strong>Deployment:</strong> Running on Alibaba Cloud ECS with Docker Compose (4 containers: PostgreSQL, Redis, backend, frontend). Live at http://47.84.106.210:3000.</p>
+<p><strong>Deployment:</strong> Running on Alibaba Cloud ECS with Docker Compose (4 containers: PostgreSQL, Redis, backend, frontend). Live at http://47.84.106.210:3001.</p>
 
 <p><strong>Alibaba Cloud proof:</strong> https://github.com/298althr/QWENCLOUD/blob/track4/backend/src/utils/alibaba.js</p>
 
@@ -588,7 +588,7 @@ THRESHOLD_DISK=85                  # Disk alert threshold
 <hr>
 
 <p><strong>[0:00-0:15] Opening</strong></p>
-<p>Show the ALTHR Autopilot dashboard at http://47.84.106.210:3000. Say: "This is ALTHR Autopilot, an AI agent that automates server operations and deployments. It runs on Alibaba Cloud ECS and uses Qwen Cloud for intelligence."</p>
+<p>Show the ALTHR Autopilot dashboard at http://47.84.106.210:3001. Say: "This is ALTHR Autopilot, an AI agent that automates server operations and deployments. It runs on Alibaba Cloud ECS and uses Qwen Cloud for intelligence."</p>
 
 <p><strong>[0:15-0:45] Monitoring</strong></p>
 <p>Navigate to the Live Metrics page. Show the real-time CPU, RAM, disk, and network graphs. Point out network bandwidth and latency monitoring. Say: "The system continuously monitors CPU, memory, disk, network bandwidth, network latency, processes, and Docker containers. When it detects an anomaly, it triggers AI diagnosis."</p>
@@ -622,7 +622,7 @@ THRESHOLD_DISK=85                  # Disk alert threshold
 <tr><td>Alibaba Cloud deployment proof</td><td><span class="badge badge-ok">Ready</span></td><td>https://github.com/298althr/QWENCLOUD/blob/track4/backend/src/utils/alibaba.js</td></tr>
 <tr><td>Architecture diagram</td><td><span class="badge badge-ok">Ready</span></td><td>docs/architecture.svg (open in browser, screenshot as PNG for Devpost)</td></tr>
 <tr><td>Demo video (under 3 min)</td><td><span class="badge badge-warn">Pending</span></td><td>Script in Section 10 - user to record and upload to YouTube</td></tr>
-<tr><td>Live deployment on Alibaba Cloud</td><td><span class="badge badge-ok">Ready</span></td><td>http://47.84.106.210:3000</td></tr>
+<tr><td>Live deployment on Alibaba Cloud</td><td><span class="badge badge-ok">Ready</span></td><td>http://47.84.106.210:3001</td></tr>
 <tr><td>Qwen Cloud integration</td><td><span class="badge badge-ok">Ready</span></td><td>DashScope API with qwen-turbo, qwen-plus, qwen-max</td></tr>
 <tr><td>License</td><td><span class="badge badge-ok">Ready</span></td><td>MIT License at repository root</td></tr>
 <tr><td>Blog post (bonus)</td><td><span class="badge badge-warn">Optional</span></td><td>Write on Medium for $500 bonus prize</td></tr>
