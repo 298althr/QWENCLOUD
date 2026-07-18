@@ -303,9 +303,9 @@ function buildCausalChain(scored, anomaly, affectedNode) {
     });
   }
 
-  // Level 3: Root (highest posterior, furthest hop or lowest-level cause)
+  // Level 3: Root (highest posterior candidate)
   const root = scored[0];
-  if (root && root !== intermediate) {
+  if (root) {
     chain.push({
       level: "root",
       node: root.nodeName,

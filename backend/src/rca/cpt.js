@@ -102,11 +102,16 @@ function hopAttenuation(hopCount) {
 
 /**
  * Compute posterior probability from prior and likelihood ratio.
- * posterior = prior * LR / (1 + prior * LR - LR)
+ * Uses the odds form of Bayes' theorem:
+ *   prior_odds = prior / (1 - prior)
+ *   posterior_odds = prior_odds * LR
+ *   posterior = posterior_odds / (1 + posterior_odds)
  */
 function computePosterior(prior, lr) {
-  const numerator = prior * lr;
-  return numerator / (1 + numerator - lr);
+  const clampedPrior = Math.min(Math.max(prior, 1e-6), 1 - 1e-6);
+  const priorOdds = clampedPrior / (1 - clampedPrior);
+  const posteriorOdds = priorOdds * lr;
+  return posteriorOdds / (1 + posteriorOdds);
 }
 
 module.exports = {
