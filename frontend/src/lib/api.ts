@@ -222,4 +222,20 @@ export const api = {
     fetchAPI("/deployments/apply-fix", { method: "POST", body: JSON.stringify(data) }),
   rebuild: (data: { clone_dir: string; repo_url?: string; env_vars?: string[] }) =>
     fetchAPI("/deployments/rebuild", { method: "POST", body: JSON.stringify(data) }),
+
+  // Root Cause Analysis
+  rcaAnalyze: (anomaly: { type: string; severity: string; message: string; data?: any }, metrics?: any) =>
+    fetchAPI("/rca/analyze", { method: "POST", body: JSON.stringify({ anomaly, metrics }) }),
+  rcaTests: () => fetchAPI("/rca/tests"),
+  rcaCalibrate: () => fetchAPI("/rca/calibrate", { method: "POST" }),
+  rcaEvidence: (query: string, topK?: number) =>
+    fetchAPI(`/rca/evidence/${encodeURIComponent(query)}?top_k=${topK || 5}`),
+
+  // Incidents
+  activeIncidents: () => fetchAPI("/incidents/active"),
+  escalateIncident: (id: string, reason?: string) =>
+    fetchAPI(`/incidents/${id}/escalate`, { method: "POST", body: JSON.stringify({ reason }) }),
+  resolveIncident: (id: string, resolution?: any) =>
+    fetchAPI(`/incidents/${id}/resolve`, { method: "POST", body: JSON.stringify(resolution || {}) }),
+  incidentHistory: () => fetchAPI("/incidents/history"),
 };

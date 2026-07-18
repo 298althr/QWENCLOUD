@@ -154,4 +154,7 @@ router.use("/monitor", require("./monitor").router);
 // Incident management
 router.use("/incidents", require("./incidents"));
 
+// Root Cause Analysis
+router.use("/rca", require("./rca"));
+
 module.exports = router;

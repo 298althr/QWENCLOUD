@@ -22,6 +22,7 @@ const { executeTool } = require("../qwen/toolExecutor");
 const { runCertaintyPipeline } = require("../pipeline/certainty");
 const { addTerminalLog } = require("../utils/terminalLog");
 const { sendTelegramMessage } = require("../telegram/bot");
+const rcaEngine = require("../rca/rcaEngine");
 
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHATID || "";
 const ESCALATION_TIMEOUT_MS = Number(process.env.ESCALATION_TIMEOUT_MS || 10 * 60 * 1000); // 10 min default
@@ -318,15 +319,31 @@ async function handleIncident({ anomaly, metrics, emitIo, skipCooldown = false }
     return { incident, result, source: "sop" };
   }
 
-  // 2. AI diagnosis path
+  // 2. AI diagnosis path — run RCA + certainty pipeline in parallel
   const userMessage = `Anomaly detected: ${anomaly.type} — ${anomaly.message}. Current metrics: CPU=${metrics.cpu}%, RAM=${metrics.ram}%, Disk=${metrics.disk}%. Diagnose root cause and propose ONE concrete remediation command.`;
-  const pipeline = await runCertaintyPipeline({ userMessage, serverState: metrics });
+
+  const [pipeline, rcaResult] = await Promise.all([
+    runCertaintyPipeline({ userMessage, serverState: metrics }),
+    rcaEngine.analyze({ anomaly, metrics, emitIo }).catch((e) => {
+      console.warn("[incident] RCA analysis failed:", e.message);
+      return null;
+    }),
+  ]);
 
   incident.diagnosis = {
     reasoning: pipeline.reasoning,
     action: pipeline.action,
     confidence: pipeline.confidence,
     risk_level: pipeline.risk_level,
+    rca: rcaResult ? {
+      incident_id: rcaResult.incident_id,
+      causal_chain: rcaResult.causal_chain,
+      confidence_score: rcaResult.confidence_score,
+      root_cause: rcaResult.causal_chain?.find((c) => c.level === "root")?.node,
+      blast_radius: rcaResult.blast_radius,
+      recommended_actions: rcaResult.recommended_actions,
+      causal_explanation: rcaResult.causal_explanation,
+    } : null,
   };
   incident.remediation_action = pipeline.action;
   incident.updatedAt = Date.now();
@@ -344,7 +361,7 @@ async function handleIncident({ anomaly, metrics, emitIo, skipCooldown = false }
     });
   }
 
-  const command = pipeline.action;
+  const command = pipeline.action || (rcaResult?.recommended_actions?.[0] || null);
   if (!command) {
     const reason = `AI did not propose a remediation action for ${anomaly.type}`;
     incident.escalations.push({ at: Date.now(), reason });

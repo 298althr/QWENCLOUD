@@ -179,3 +179,46 @@ export function approveAction(action_id: string) {
 export function rejectAction(action_id: string, reason?: string) {
   getSocket().emit("reject_action", { action_id, reason });
 }
+
+// RCA events
+export type RcaResult = {
+  incident_id: string;
+  symptom: string;
+  signal_type: string;
+  affected_node: string;
+  causal_chain: any[];
+  competing_causes: any[];
+  bayesian_scores: Record<string, any>;
+  blast_radius: number;
+  impacted_services: string[];
+  recommended_actions: string[];
+  causal_explanation: string;
+  confidence_score: number;
+  governance_status: string;
+  analysis_time_ms: number;
+  timestamp: string;
+};
+
+export function onRcaResult(cb: (data: RcaResult) => void) {
+  const s = getSocket();
+  s.on("rca_result", cb);
+  return () => { s.off("rca_result", cb); };
+}
+
+export function onIncidentOpened(cb: (data: any) => void) {
+  const s = getSocket();
+  s.on("incident_opened", cb);
+  return () => { s.off("incident_opened", cb); };
+}
+
+export function onIncidentEscalated(cb: (data: any) => void) {
+  const s = getSocket();
+  s.on("incident_escalated", cb);
+  return () => { s.off("incident_escalated", cb); };
+}
+
+export function onIncidentResolved(cb: (data: any) => void) {
+  const s = getSocket();
+  s.on("incident_resolved", cb);
+  return () => { s.off("incident_resolved", cb); };
+}

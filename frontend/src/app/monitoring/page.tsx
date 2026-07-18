@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { AreaChart } from "@/components/charts/AreaChart";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { PageHeader, SectionCard, MetricCard, StatusPill } from "@/components/design-system";
+import RcaPanel from "@/components/RcaPanel";
 import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -193,6 +194,9 @@ export default function MonitoringPage() {
           </SectionCard>
         </TabsContent>
       </Tabs>
+
+      {/* RCA Panel */}
+      <RcaPanel />
     </div>
   );
 }
