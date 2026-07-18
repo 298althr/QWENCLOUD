@@ -4,7 +4,7 @@
 const express = require("express");
 const router = express.Router();
 const { listActiveIncidents, escalateIncident, resolveIncident } = require("../monitors/incidentResponse");
-const { query: queryAudit } = require("../utils/audit");
+const { queryAudit } = require("../utils/audit");
 
 router.get("/active", (req, res) => {
   res.json({ incidents: listActiveIncidents(), timestamp: new Date().toISOString() });

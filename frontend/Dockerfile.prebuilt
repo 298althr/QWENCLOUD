@@ -1,0 +1,26 @@
+# frontend/Dockerfile.prebuilt
+# Uses pre-built standalone output from local build to avoid memory issues on ECS.
+# Build locally first:
+#   NEXT_PUBLIC_API_BASE=http://47.84.106.210:3000/api \
+#   NEXT_PUBLIC_WS_URL=http://47.84.106.210:3000 \
+#   NEXT_PUBLIC_API_URL=http://backend:3000 \
+#   npx next build
+# Then: docker build -f Dockerfile.prebuilt -t althr-autopilot-frontend:latest .
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy pre-built standalone output
+COPY .next/standalone ./
+COPY .next/static ./.next/static
+COPY public ./public
+
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV DISABLE_PWA=true
+
+EXPOSE 3001
+
+ENV PORT=3001
+ENV HOSTNAME=0.0.0.0
+CMD ["node", "server.js"]
