@@ -51,11 +51,17 @@ router.post("/", async (req, res) => {
     }
 
     if (!result.success) {
+      // Auto-trigger AI root cause analysis for every deployment failure
+      investigateFailure(repo_url, result).catch((e) =>
+        console.error("[deploy] auto-investigation failed:", e.message)
+      );
       return res.status(500).json(result);
     }
     res.json(result);
   } catch (e) {
     try { await audit({ operation: "execute", actor: "api", target: repo_url, target_type: "deployment", reasoning: `Deployment error: ${e.message}`, safResult: saf, result: "failure" }); } catch {}
+    // Auto-trigger AI investigation for exceptions too
+    investigateFailure(repo_url, { stage: "exception", error: e.message }).catch(() => {});
     res.status(500).json({ success: false, stage: "exception", error: e.message });
   }
 });

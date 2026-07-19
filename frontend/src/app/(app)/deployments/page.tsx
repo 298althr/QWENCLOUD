@@ -169,6 +169,16 @@ export default function DeploymentsPage() {
       } else {
         toast.error(`Deploy failed at ${r.stage}: ${r.error?.substring(0, 100)}`);
         setError(`Failed at ${r.stage}: ${r.error?.substring(0, 200)}`);
+        // Auto-investigation runs on the backend; poll for the report after a delay
+        setInvestigating(true);
+        setTimeout(async () => {
+          try {
+            await loadReports();
+            setShowReportModal(true);
+            toast.success("AI root cause analysis complete. See report.");
+          } catch {}
+          finally { setInvestigating(false); }
+        }, 5000);
       }
     } catch (e: any) {
       setError(e.message);
@@ -442,8 +452,13 @@ export default function DeploymentsPage() {
           {error && (
             <div className="space-y-2 rounded-lg bg-status-crit/10 p-3 text-sm text-status-crit">
               <div className="flex items-center gap-2"><AlertCircle className="h-4 w-4" /> {error}</div>
+              {investigating && (
+                <div className="flex items-center gap-2 text-status-warn">
+                  <Loader2 className="h-4 w-4 animate-spin" /> AI root cause analysis running automatically...
+                </div>
+              )}
               <Button variant="outline" size="sm" onClick={investigateDeployFailure} disabled={investigating}>
-                {investigating ? <><Loader2 className="h-4 w-4 animate-spin" /> Investigating...</> : <><Bug className="h-4 w-4 mr-1" /> Investigate with AI</>}
+                {investigating ? <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</> : <><Bug className="h-4 w-4 mr-1" /> Re-investigate with AI</>}
               </Button>
             </div>
           )}
