@@ -128,6 +128,7 @@ function humanVerifyMiddleware(req, res, next) {
 
   // Skip public endpoints
   if (HUMAN_PUBLIC_ENDPOINTS.has(req.path)) return next();
+  if (HUMAN_PUBLIC_ENDPOINTS.has(req.baseUrl + req.path)) return next();
 
   // Check for token in header or cookie
   const token = req.headers["x-human-token"] || req.cookies?.human_token;
