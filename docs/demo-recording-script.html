@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALTHR Autopilot — Demo Recording Script (Updated)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            ink: { 950: '#0B0C10', 900: '#1F2833', 800: '#2F3A4A', 700: '#3E4C5E', 600: '#526475', 500: '#6B7C8F', 400: '#94A3B2', 300: '#C5CDD5', 200: '#E0E5EA', 100: '#F1F4F7' },
+            gold: { 400: '#D4AF37', 500: '#C5A028', 600: '#A88316' },
+            status: { ok: '#3DDC84', warn: '#F5B342', crit: '#FF5C5C' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0B0C10; color: #E0E5EA; }
+    .gradient-text { background: linear-gradient(135deg, #D4AF37 0%, #3DDC84 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .card { background: rgba(31, 40, 51, 0.7); border: 1px solid rgba(82, 100, 117, 0.3); }
+    .badge { display: inline-flex; align-items: center; border-radius: 0.25rem; padding: 0.125rem 0.5rem; font-size: 0.75rem; line-height: 1rem; font-weight: 500; }
+    .badge.ok { background: rgba(61, 220, 132, 0.15); color: #3DDC84; }
+    .badge.warn { background: rgba(245, 179, 66, 0.15); color: #F5B342; }
+    .badge.crit { background: rgba(255, 92, 92, 0.15); color: #FF5C5C; }
+    .badge.info { background: rgba(148, 163, 178, 0.15); color: #94A3B2; }
+    .badge.ai { background: rgba(212, 175, 55, 0.15); color: #D4AF37; }
+    code { border-radius: 0.25rem; background: #1F2833; padding-left: 0.25rem; padding-right: 0.25rem; padding-top: 0.125rem; padding-bottom: 0.125rem; font-size: 0.75rem; line-height: 1rem; color: #D4AF37; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .act { border-left: 3px solid #D4AF37; padding-left: 1rem; margin-bottom: 2.5rem; }
+    .scene { margin-bottom: 1rem; }
+  </style>
+</head>
+<body class="antialiased">
+  <div class="max-w-5xl mx-auto px-6 py-12">
+
+    <header class="mb-10 border-b border-ink-800 pb-8">
+      <h1 class="text-4xl font-bold gradient-text mb-3">ALTHR Autopilot</h1>
+      <p class="text-xl text-ink-300">Demo Recording Script and Captions</p>
+      <p class="text-sm text-ink-500 mt-2">Target length: 3 minutes · Updated July 19, 2026</p>
+    </header>
+
+    <section class="mb-10">
+      <div class="card rounded-lg p-5">
+        <h2 class="text-lg font-semibold text-gold-400 mb-3">Demo goal</h2>
+        <p class="text-ink-300">Show that ALTHR is an AI agent that runs server operations on its own. It watches your servers, figures out what is wrong when things break, and fixes problems without a human typing commands. Three AI modules debate every action before it runs. A 7-layer safety framework checks each action. A human approves anything risky. Everything is logged.</p>
+
+        <div class="mt-4 space-y-2">
+          <p class="text-sm text-ink-400"><strong class="text-gold-400">Key pages to show:</strong></p>
+          <ul class="text-sm text-ink-400 list-disc list-inside space-y-1">
+            <li>Landing page at <code>/</code> (new, for evaluators)</li>
+            <li>Dashboard at <code>/dashboard</code> (live metrics, kill switch, simulate incidents)</li>
+            <li>AI Assistant at <code>/agent</code> (natural language chat with Qwen models)</li>
+            <li>Approvals at <code>/approvals</code> (human-in-the-loop queue)</li>
+            <li>Safety and Audit at <code>/security</code> (SAF 7-layer, audit log, security scan)</li>
+            <li>Settings at <code>/settings</code> (kill switch, guardrails, budgets)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 1 -->
+    <div class="act">
+      <h2 class="text-2xl font-semibold text-ink-200 mb-2">Act 1 - Landing Page and Opening (0:00 to 0:25)</h2>
+      <div class="card rounded-lg p-5">
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 1</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Landing page at <code>/</code></p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "This is ALTHR Autopilot, an AI agent that runs your server operations on its own. It was built for the Qwen Cloud hackathon, Track 4."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: ALTHR Autopilot, built for Qwen Cloud Track 4.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 2</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Click through the landing page tabs (Overview, Architecture, AI Engine, Safety)</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "The landing page explains what the system does, how the architecture works, and how the safety framework protects your servers. Click Go to Dashboard to enter the live system."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: The landing page gives evaluators a full overview before entering the dashboard.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 3</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Click <code>Go to Dashboard</code> button, arrive at <code>/dashboard</code></p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "Now we are in the live dashboard. Real-time CPU, RAM, disk, and network metrics stream over WebSocket."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: Live metrics stream over WebSocket to the dashboard.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACT 2 -->
+    <div class="act">
+      <h2 class="text-2xl font-semibold text-ink-200 mb-2">Act 2 - Simulate an Incident and Watch the AI Respond (0:25 to 1:10)</h2>
+      <div class="card rounded-lg p-5">
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 1</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Dashboard, find the Simulate Incident buttons</p>
+          <p class="text-ink-300 mb-2"><strong>Action:</strong> Click <code>Simulate CPU Spike</code> button.</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "Let us trigger a fake CPU spike and watch the AI detect it, diagnose it, and propose a fix."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: Click Simulate CPU Spike to trigger an anomaly.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 2</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: CPU chart spikes, anomaly alert appears</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "The monitoring loop detects the spike within seconds. The AI pipeline starts: intent parsing, then DRE proposes actions, DREV reviews them, and CRDS checks against history."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: The monitoring loop detects the anomaly and triggers the AI pipeline.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 3</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Activity feed shows AI reasoning steps</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "You can see each step in the activity feed. The AI gathers evidence, runs diagnostics, and produces a root cause analysis with a confidence score."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: Three AI modules (DRE, DREV, CRDS) debate each action before it runs.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACT 3 -->
+    <div class="act">
+      <h2 class="text-2xl font-semibold text-ink-200 mb-2">Act 3 - Human Approval and Safety (1:10 to 1:50)</h2>
+      <div class="card rounded-lg p-5">
+        <div class="scene">
+          <div class="badge ok mb-2">Scene 1</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Navigate to <code>/approvals</code></p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "When the AI is not confident enough to act on its own, the action goes to the approval queue. A human can review the details and approve or reject."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: Actions below 85 percent confidence go to the human approval queue.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ok mb-2">Scene 2</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Navigate to <code>/security</code></p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "Every action passes through a 7-layer safety framework. You can see the status of each layer here. The audit log shows every action with timestamp, confidence, and result."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: SAF 7-layer framework: asset classification, identity, network, policy, logging, containment, governance.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ok mb-2">Scene 3</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Click Run Security Scan on the security page</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "The security scan checks open ports, user accounts, and system status. The backend is protected with API key auth, JWT sessions, rate limiting, and input validation on every route."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: Security scan checks system exposure. All API routes have validation and rate limiting.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACT 4 -->
+    <div class="act">
+      <h2 class="text-2xl font-semibold text-ink-200 mb-2">Act 4 - AI Assistant and Kill Switch (1:50 to 2:25)</h2>
+      <div class="card rounded-lg p-5">
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 1</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Navigate to <code>/agent</code></p>
+          <p class="text-ink-300 mb-2"><strong>User types:</strong> <code>show server health</code></p>
+          <p class="text-ink-300 mb-2"><strong>AI responds:</strong> runs the health check tool and streams the result back in real time.</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: The AI assistant parses natural language and runs real tools.</p>
+        </div>
+        <div class="scene">
+          <div class="badge crit mb-2">Scene 2</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Navigate to <code>/settings</code></p>
+          <p class="text-ink-300 mb-2"><strong>Action:</strong> Click the Kill Switch toggle to trip it.</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "If anything goes wrong, the kill switch stops all AI actions immediately. One click and everything halts."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: The kill switch stops all AI actions in one click.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ok mb-2">Scene 3</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Dashboard shows red kill switch banner</p>
+          <p class="text-ink-300 mb-2"><strong>Action:</strong> Click Reset Kill Switch.</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "Reset it when you are ready to resume. The system also has guardrails, budget limits, and session timeouts configured here."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: Guardrails, budgets, and session timeouts are configurable in settings.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACT 5 -->
+    <div class="act">
+      <h2 class="text-2xl font-semibold text-ink-200 mb-2">Act 5 - Memory and Closing (2:25 to 3:00)</h2>
+      <div class="card rounded-lg p-5">
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 1</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Navigate to <code>/memory</code></p>
+          <p class="text-ink-300 mb-2"><strong>Action:</strong> search for a past incident or deployment in the memory layers.</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "The agent has 7 layers of persistent memory. It remembers past incidents, what fixed them, and what did not work. It gets smarter over time."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: 7-layer persistent memory: episodic, procedural, semantic, working, social, meta, intent.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 2</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Back to landing page at <code>/</code></p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "Built with Qwen models on Alibaba Cloud. Three AI modules debate every action. Seven safety layers check every decision. A human approves anything risky. Everything is logged."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: Built with Qwen models on Alibaba Cloud. Safety first, always.</p>
+        </div>
+        <div class="scene">
+          <div class="badge ai mb-2">Scene 3</div>
+          <p class="text-ink-300 font-medium mb-2">Screen: Fade to logo</p>
+          <p class="text-ink-300 mb-2"><strong>Narrator:</strong> "ALTHR Autopilot. Watch, diagnose, fix, remember."</p>
+          <p class="text-sm text-ink-400 italic border-l-2 border-ink-600 pl-3">Caption: ALTHR Autopilot. Watch, diagnose, fix, remember.</p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="border-t border-ink-800 pt-8 text-sm text-ink-500">
+      <div class="space-y-3">
+        <p>Demo script updated July 19, 2026 for ALTHR Autopilot Track 4. Run commands in order; speak captions as on-screen text appears.</p>
+        <div class="card rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gold-400 mb-2">Quick reference: page routes</h3>
+          <ul class="text-xs text-ink-400 space-y-1">
+            <li><code>/</code> - Landing page (for evaluators, 6 tabs)</li>
+            <li><code>/dashboard</code> - Live metrics, simulate incidents, kill switch banner</li>
+            <li><code>/agent</code> - AI assistant chat with Qwen models</li>
+            <li><code>/approvals</code> - Human-in-the-loop approval queue</li>
+            <li><code>/security</code> - SAF 7-layer, audit log, security scan</li>
+            <li><code>/settings</code> - Kill switch, guardrails, budgets, session config</li>
+            <li><code>/memory</code> - 7-layer persistent memory browser</li>
+            <li><code>/monitoring</code> - Detailed charts and RCA panel</li>
+            <li><code>/deployments</code> - GitHub repo deploy with stack detection</li>
+            <li><code>/terminal</code> - Browser-based shell terminal</li>
+          </ul>
+        </div>
+        <div class="card rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gold-400 mb-2">Security features to mention during the demo</h3>
+          <ul class="text-xs text-ink-400 space-y-1">
+            <li>API key and JWT authentication on all routes</li>
+            <li>WebSocket authentication on connection handshake</li>
+            <li>Rate limiting: 100 requests per minute, 20 burst max</li>
+            <li>Input validation with Zod on every API endpoint</li>
+            <li>CORS locked to frontend origin</li>
+            <li>CSP headers via Helmet</li>
+            <li>Audit logging with client IP capture</li>
+            <li>Session timeout (30 min default)</li>
+            <li>Kill switch for emergency stop</li>
+            <li>Human-in-the-loop approvals for risky actions</li>
+          </ul>
+        </div>
+        <div class="card rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gold-400 mb-2">Qwen models used</h3>
+          <ul class="text-xs text-ink-400 space-y-1">
+            <li><code>qwen-turbo</code> - Intent parsing, simple classification</li>
+            <li><code>qwen-plus</code> - DRE proposals, DREV reviews, root cause analysis</li>
+            <li><code>qwen-max</code> - Complex diagnosis, multi-step reasoning, CRDS veto</li>
+          </ul>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+</body>
+</html>
