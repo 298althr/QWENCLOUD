@@ -1,9 +1,8 @@
 // backend/src/middleware/wsAuth.js
 // WebSocket authentication middleware for Socket.io
 
-const API_KEY = process.env.ALTHR_API_KEY;
-
 function wsAuthMiddleware(socket, next) {
+  const API_KEY = process.env.ALTHR_API_KEY;
   // If no API key configured, allow all (dev mode)
   if (!API_KEY) {
     socket.user = { username: "ws-client", role: "admin" };

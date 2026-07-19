@@ -3,9 +3,8 @@
 
 const express = require("express");
 const router = express.Router();
-const { createSessionToken, isPublic } = require("../middleware/auth");
-const { reqIp } = require("../utils/audit");
-const { audit } = require("../utils/audit");
+const { createSessionToken } = require("../middleware/auth");
+const { audit, reqIp } = require("../utils/audit");
 
 // POST /api/auth/login — exchange API key for JWT session token
 router.post("/login", (req, res) => {

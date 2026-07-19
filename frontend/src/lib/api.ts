@@ -250,4 +250,11 @@ export const api = {
   resolveIncident: (id: string, resolution?: any) =>
     fetchAPI(`/incidents/${id}/resolve`, { method: "POST", body: JSON.stringify(resolution || {}) }),
   incidentHistory: () => fetchAPI("/incidents/history"),
+
+  // Auth
+  login: (apiKey: string, username?: string) =>
+    fetchAPI("/auth/login", { method: "POST", body: JSON.stringify({ api_key: apiKey, username }) }),
+  verifySession: () => fetchAPI("/auth/verify"),
+  refreshSession: () =>
+    fetchAPI("/auth/refresh", { method: "POST" }),
 };
