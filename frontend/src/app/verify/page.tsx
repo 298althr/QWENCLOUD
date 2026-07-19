@@ -2,74 +2,148 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Loader2, CheckCircle2, AlertCircle, Fingerprint } from "lucide-react";
+import { ShieldCheck, Loader2, CheckCircle2, AlertCircle, Fingerprint, RefreshCw } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000/api";
 
+type Status = "idle" | "clicked" | "fetching" | "computing" | "verifying" | "done" | "error";
+
 export default function VerifyPage() {
   const router = useRouter();
-  const [status, setStatus] = useState<"idle" | "fetching" | "computing" | "verifying" | "done" | "error">("idle");
+  const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
   const [attempts, setAttempts] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    // If already verified, redirect to dashboard
     const token = localStorage.getItem("althr_human_token");
     if (token) {
       router.push("/dashboard");
-      return;
     }
-    startVerification();
   }, []);
+
+  function handleClick() {
+    if (status === "computing" || status === "fetching" || status === "verifying") return;
+    startVerification();
+  }
 
   async function startVerification() {
     try {
       setStatus("fetching");
       setError("");
 
-      // Step 1: Get challenge from backend
       const res = await fetch(`${API_BASE}/human/challenge`);
       if (!res.ok) throw new Error("Failed to fetch challenge");
-      const { challenge, difficulty, algorithm } = await res.json();
+      const { challenge, difficulty } = await res.json();
 
-      // Step 2: Compute proof-of-work using Web Worker
       setStatus("computing");
       setProgress(0);
       setAttempts(0);
+      setElapsed(0);
 
+      // Synchronous SHA-256 implementation for Web Worker
+      // (crypto.subtle is async and unavailable in some Blob URL worker contexts)
       const workerCode = `
-        self.onmessage = function(e) {
-          const { challenge, difficulty } = e.data;
-          const target = new Uint8Array(difficulty);
-          let nonce = 0;
-          const batchSize = 5000;
-          const startTime = Date.now();
+// Minimal synchronous SHA-256 implementation
+var K = [
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+];
 
-          function computeBatch() {
-            for (let i = 0; i < batchSize; i++) {
-              const data = new TextEncoder().encode(challenge + ":" + nonce);
-              crypto.subtle.digest("SHA-256", data).then(hash => {
-                const bytes = new Uint8Array(hash);
-                let valid = true;
-                for (let j = 0; j < difficulty; j++) {
-                  if (bytes[j] !== 0) { valid = false; break; }
-                }
-                if (valid) {
-                  const elapsed = Date.now() - startTime;
-                  self.postMessage({ found: true, nonce, attempts: nonce, elapsed });
-                } else if (nonce % 10000 === 0) {
-                  self.postMessage({ found: false, attempts: nonce });
-                }
-              });
-              nonce++;
-            }
-            // Schedule next batch if not found
-            setTimeout(computeBatch, 0);
-          }
-          computeBatch();
-        };
+function rotr(x, n) { return ((x >>> n) | (x << (32 - n))) >>> 0; }
+
+function sha256Bytes(msg) {
+  var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  var len = msg.length;
+  var bitLen = len * 8;
+  var paddedLen = (((len + 9 + 63) >> 6) << 6);
+  var data = new Uint8Array(paddedLen);
+  data.set(msg);
+  data[len] = 0x80;
+  // Append length as 64-bit big-endian
+  data[paddedLen - 4] = (bitLen >>> 24) & 0xff;
+  data[paddedLen - 3] = (bitLen >>> 16) & 0xff;
+  data[paddedLen - 2] = (bitLen >>> 8) & 0xff;
+  data[paddedLen - 1] = bitLen & 0xff;
+
+  var W = new Array(64);
+  for (var i = 0; i < paddedLen; i += 32) {
+    for (var t = 0; t < 16; t++) {
+      W[t] = ((data[i + t*4] << 24) | (data[i + t*4 + 1] << 16) | (data[i + t*4 + 2] << 8) | data[i + t*4 + 3]) >>> 0;
+    }
+    for (var t = 16; t < 64; t++) {
+      var s0 = rotr(W[t-15], 7) ^ rotr(W[t-15], 18) ^ (W[t-15] >>> 3);
+      var s1 = rotr(W[t-2], 17) ^ rotr(W[t-2], 19) ^ (W[t-2] >>> 10);
+      W[t] = (W[t-16] + s0 + W[t-7] + s1) >>> 0;
+    }
+    var a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for (var t = 0; t < 64; t++) {
+      var S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      var ch = (e & f) ^ (~e & g);
+      var temp1 = (h + S1 + ch + K[t] + W[t]) >>> 0;
+      var S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      var maj = (a & b) ^ (a & c) ^ (b & c);
+      var temp2 = (S0 + maj) >>> 0;
+      h=g; g=f; f=e; e=(d+temp1)>>>0; d=c; c=b; b=a; a=(temp1+temp2)>>>0;
+    }
+    H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;
+    H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;
+  }
+  var out = new Uint8Array(32);
+  for (var i = 0; i < 8; i++) {
+    out[i*4] = (H[i] >>> 24) & 0xff;
+    out[i*4+1] = (H[i] >>> 16) & 0xff;
+    out[i*4+2] = (H[i] >>> 8) & 0xff;
+    out[i*4+3] = H[i] & 0xff;
+  }
+  return out;
+}
+
+function strToBytes(s) {
+  var arr = [];
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c < 0x80) arr.push(c);
+    else if (c < 0x800) { arr.push(0xc0 | (c >> 6)); arr.push(0x80 | (c & 0x3f)); }
+    else { arr.push(0xe0 | (c >> 12)); arr.push(0x80 | ((c >> 6) & 0x3f)); arr.push(0x80 | (c & 0x3f)); }
+  }
+  return new Uint8Array(arr);
+}
+
+self.onmessage = function(e) {
+  var challenge = e.data.challenge;
+  var difficulty = e.data.difficulty;
+  var nonce = 0;
+  var startTime = Date.now();
+  var batchSize = 2000;
+
+  function computeBatch() {
+    for (var i = 0; i < batchSize; i++) {
+      var data = strToBytes(challenge + ":" + nonce);
+      var hash = sha256Bytes(data);
+      var valid = true;
+      for (var j = 0; j < difficulty; j++) {
+        if (hash[j] !== 0) { valid = false; break; }
+      }
+      if (valid) {
+        self.postMessage({ found: true, nonce: nonce, attempts: nonce, elapsed: Date.now() - startTime });
+        return;
+      }
+      nonce++;
+    }
+    self.postMessage({ found: false, attempts: nonce, elapsed: Date.now() - startTime });
+    setTimeout(computeBatch, 0);
+  }
+  computeBatch();
+};
       `;
 
       const blob = new Blob([workerCode], { type: "application/javascript" });
@@ -79,10 +153,10 @@ export default function VerifyPage() {
       worker.onmessage = async (e) => {
         if (e.data.found) {
           setAttempts(e.data.attempts);
+          setElapsed(e.data.elapsed);
           setStatus("verifying");
           worker.terminate();
 
-          // Step 3: Submit solution to backend
           try {
             const verifyRes = await fetch(`${API_BASE}/human/verify`, {
               method: "POST",
@@ -102,13 +176,14 @@ export default function VerifyPage() {
 
             setTimeout(() => {
               router.push("/dashboard");
-            }, 1000);
+            }, 1500);
           } catch (err: any) {
             setStatus("error");
             setError(err.message);
           }
         } else {
           setAttempts(e.data.attempts);
+          setElapsed(e.data.elapsed);
           setProgress(Math.min((e.data.attempts / 100000) * 100, 95));
         }
       };
@@ -120,12 +195,14 @@ export default function VerifyPage() {
     }
   }
 
+  const isWorking = status === "fetching" || status === "computing" || status === "verifying";
+
   return (
     <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Card */}
         <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-xl p-8 md:p-10">
-          {/* Glow effect */}
+          {/* Glow */}
           <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-blue-500/10 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
@@ -137,8 +214,10 @@ export default function VerifyPage() {
                   <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                 ) : status === "error" ? (
                   <AlertCircle className="w-8 h-8 text-red-400" />
+                ) : isWorking ? (
+                  <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                 ) : (
-                  <Fingerprint className="w-8 h-8 text-blue-400 animate-pulse" />
+                  <Fingerprint className="w-8 h-8 text-blue-400" />
                 )}
               </div>
             </div>
@@ -147,72 +226,93 @@ export default function VerifyPage() {
             <h1 className="text-xl font-semibold text-white text-center mb-2">
               Human Verification
             </h1>
-            <p className="text-sm text-white/50 text-center mb-8">
-              {status === "fetching" && "Initializing challenge..."}
-              {status === "computing" && "Solving proof-of-work puzzle..."}
+            <p className="text-sm text-white/50 text-center mb-6">
+              {status === "idle" && "Click the checkbox below to verify you are human"}
+              {status === "fetching" && "Loading challenge..."}
+              {status === "computing" && "Solving puzzle... this takes a few seconds"}
               {status === "verifying" && "Verifying solution..."}
-              {status === "done" && "Verified! Redirecting..."}
+              {status === "done" && "Verified! Redirecting to dashboard..."}
               {status === "error" && "Verification failed"}
-              {status === "idle" && "Preparing..."}
             </p>
 
-            {/* Progress bar */}
+            {/* CAPTCHA checkbox - the "I'm not a robot" box */}
+            {status === "idle" && (
+              <div className="space-y-4">
+                <button
+                  onClick={handleClick}
+                  className="w-full rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/25 px-6 py-5 flex items-center gap-4 transition-all group"
+                >
+                  <div className="w-7 h-7 rounded-md border-2 border-white/20 group-hover:border-blue-400 flex items-center justify-center transition-colors">
+                    <Fingerprint className="w-4 h-4 text-white/30 group-hover:text-blue-400 transition-colors" />
+                  </div>
+                  <span className="text-white/70 text-sm font-medium text-left">
+                    I&apos;m not a robot
+                  </span>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-white/20" />
+                    <span className="text-[10px] text-white/20">PoW</span>
+                  </div>
+                </button>
+                <p className="text-xs text-white/30 text-center">
+                  Clicking will run a proof-of-work challenge in your browser
+                </p>
+              </div>
+            )}
+
+            {/* Progress bar during computation */}
             {(status === "computing" || status === "verifying") && (
-              <div className="mb-4">
-                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <div className="space-y-3">
+                <div className="h-2 rounded-full bg-white/5 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-300"
                     style={{ width: `${status === "verifying" ? 100 : progress}%` }}
                   />
                 </div>
-                {status === "computing" && (
-                  <p className="text-xs text-white/30 text-center mt-2">
-                    {attempts.toLocaleString()} hashes computed
+                <div className="flex justify-between text-xs text-white/30">
+                  <span>{attempts.toLocaleString()} hashes</span>
+                  <span>{elapsed > 0 ? `${(elapsed / 1000).toFixed(1)}s` : ""}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Done state */}
+            {status === "done" && (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                  <p className="text-sm text-emerald-300">
+                    Verification successful — {attempts.toLocaleString()} hashes in {(elapsed / 1000).toFixed(1)}s
                   </p>
-                )}
+                </div>
               </div>
             )}
 
-            {/* Spinner */}
-            {(status === "fetching" || status === "verifying") && (
-              <div className="flex justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-white/40" />
-              </div>
-            )}
-
-            {/* Error */}
+            {/* Error state */}
             {status === "error" && (
               <div className="space-y-4">
                 <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4">
                   <p className="text-sm text-red-300">{error}</p>
                 </div>
                 <button
-                  onClick={startVerification}
-                  className="w-full rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium py-3 transition-colors"
+                  onClick={() => { setStatus("idle"); setError(""); }}
+                  className="w-full rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium py-3 transition-colors flex items-center justify-center gap-2"
                 >
+                  <RefreshCw className="w-4 h-4" />
                   Try Again
                 </button>
               </div>
             )}
 
-            {/* Done */}
-            {status === "done" && (
-              <div className="flex justify-center">
-                <CheckCircle2 className="w-12 h-12 text-emerald-400 animate-pulse" />
-              </div>
-            )}
-
-            {/* Info */}
-            {status !== "error" && status !== "done" && (
+            {/* Footer info */}
+            {status !== "error" && (
               <div className="mt-6 flex items-center gap-2 justify-center">
-                <ShieldCheck className="w-4 h-4 text-white/20" />
-                <span className="text-xs text-white/30">Proof-of-Work Anti-Bot Protection</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-white/20" />
+                <span className="text-xs text-white/20">Proof-of-Work Anti-Bot Protection</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-xs text-white/20 mt-6">
           ALTHR Autopilot — Human Verification Layer
         </p>
