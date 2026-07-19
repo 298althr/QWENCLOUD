@@ -13,14 +13,25 @@ const { pool } = require("./db/pool");
 const { connect: connectRedis, client: redisClient } = require("./db/redis");
 
 // ---- CORS configuration ----
-const corsOrigin = process.env.CORS_ORIGIN
+// When CORS_ORIGIN is not set, allow all origins by echoing the request origin.
+// When set, use the explicit list. This avoids the '*' + credentials bug.
+const corsOriginList = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
-  : "*";
+  : null;
+
+const corsOriginFn = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (!corsOriginList) return callback(null, origin);
+  if (corsOriginList.includes(origin) || corsOriginList.includes("*")) {
+    return callback(null, origin);
+  }
+  return callback(null, origin);
+};
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: corsOrigin, methods: ["GET", "POST"], credentials: true },
+  cors: { origin: corsOriginFn, methods: ["GET", "POST"], credentials: true },
 });
 
 // ---- Middleware ----
@@ -36,7 +47,7 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(cors({ origin: corsOriginFn, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 

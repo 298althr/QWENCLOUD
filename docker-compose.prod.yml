@@ -60,6 +60,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - QWEN_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
       - NODE_ENV=production
+      - CORS_ORIGIN=http://47.84.106.210:3001,http://47.84.106.210,http://localhost:3001
     ports:
       - "3000:3000"
     depends_on:
