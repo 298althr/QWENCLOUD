@@ -75,7 +75,7 @@ function sha256Bytes(msg) {
   data[paddedLen - 1] = bitLen & 0xff;
 
   var W = new Array(64);
-  for (var i = 0; i < paddedLen; i += 32) {
+  for (var i = 0; i < paddedLen; i += 64) {
     for (var t = 0; t < 16; t++) {
       W[t] = ((data[i + t*4] << 24) | (data[i + t*4 + 1] << 16) | (data[i + t*4 + 2] << 8) | data[i + t*4 + 3]) >>> 0;
     }
