@@ -275,4 +275,11 @@ export const api = {
   verifySession: () => fetchAPI("/auth/verify"),
   refreshSession: () =>
     fetchAPI("/auth/refresh", { method: "POST" }),
+
+  // Deployment versioning & rollback
+  listVersions: () => fetchAPI("/versioning/list"),
+  saveVersion: (label?: string) =>
+    fetchAPI("/versioning/save", { method: "POST", body: JSON.stringify({ label }) }),
+  rollbackVersion: (target: string | number) =>
+    fetchAPI("/versioning/rollback", { method: "POST", body: JSON.stringify({ target }) }),
 };

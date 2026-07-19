@@ -160,4 +160,7 @@ router.use("/rca", require("./rca"));
 // Authentication
 router.use("/auth", require("./auth"));
 
+// Deployment versioning & rollback
+router.use("/versioning", require("./versioning"));
+
 module.exports = router;

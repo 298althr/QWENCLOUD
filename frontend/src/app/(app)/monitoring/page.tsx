@@ -9,7 +9,7 @@ import { AreaChart } from "@/components/charts/AreaChart";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { PageHeader, SectionCard, MetricCard, StatusPill, PageLoader } from "@/components/design-system";
 import RcaPanel from "@/components/RcaPanel";
-import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle, History } from "lucide-react";
+import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle, History, GitBranch, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAX_POINTS = 60;
@@ -32,6 +32,8 @@ export default function MonitoringPage() {
   const [, forceTick] = useState(0);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [actionHistory, setActionHistory] = useState<any[]>([]);
+  const [versions, setVersions] = useState<any[]>([]);
+  const [rollingBack, setRollingBack] = useState(false);
 
   useEffect(() => {
     // Load historical metrics on mount to pre-fill graphs
@@ -51,6 +53,8 @@ export default function MonitoringPage() {
     }).catch(() => {});
     // Load action history
     api.actionHistory(20).then((r) => setActionHistory(r.actions || [])).catch(() => {});
+    // Load deployment versions
+    api.listVersions().then((r) => setVersions(r.versions || [])).catch(() => {});
     api.processes("cpu", 50).then((r) => setProcesses(r.processes || [])).catch(() => {});
     api.ports().then((r) => setPorts(r.ports || [])).catch(() => {});
     api.dockerContainers().then((r) => { setContainers(r.containers || []); setDataLoaded(true); }).catch(() => setDataLoaded(true));
@@ -160,6 +164,7 @@ export default function MonitoringPage() {
           <TabsTrigger value="ports"><Network className="mr-2 h-4 w-4" /> Ports</TabsTrigger>
           <TabsTrigger value="docker"><Container className="mr-2 h-4 w-4" /> Docker</TabsTrigger>
           <TabsTrigger value="actions"><History className="mr-2 h-4 w-4" /> Actions</TabsTrigger>
+          <TabsTrigger value="versions"><GitBranch className="mr-2 h-4 w-4" /> Versions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics" className="mt-4">
@@ -223,6 +228,55 @@ export default function MonitoringPage() {
                 pageSize={15}
                 emptyMessage="No containers running"
               />
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="versions" className="mt-4">
+          <SectionCard title="Deployment Versions" description="Saved deployment snapshots — rollback to any of the last 10 versions" delay={0.1}>
+            <div className="mb-4 flex gap-2">
+              <button
+                onClick={() => {
+                  api.saveVersion("manual-dashboard").then(() => api.listVersions().then((r) => setVersions(r.versions || []))).catch(() => {});
+                }}
+                className="rounded-md bg-gold-500 px-3 py-1.5 text-xs font-medium text-ink-900 hover:bg-gold-600"
+              >
+                Save Current Version
+              </button>
+            </div>
+            {versions.length === 0 ? (
+              <p className="text-sm text-ink-500">No versions saved yet. Versions are automatically saved before each deployment.</p>
+            ) : (
+              <div className="space-y-2">
+                {versions.map((v: any) => (
+                  <div key={v.id} className="flex items-center justify-between rounded-md border border-ink-700 bg-ink-850 p-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-mono text-gold-500">#{v.index}</span>
+                      <div>
+                        <div className="text-sm text-ink-100">{v.id.replace(/^[0-9]+_[0-9]+_/, "")}</div>
+                        <div className="text-xs text-ink-400">git: {v.gitHash}</div>
+                      </div>
+                    </div>
+                    <button
+                      disabled={rollingBack}
+                      onClick={() => {
+                        if (!confirm(`Rollback to version #${v.index} (${v.id})? This will restart the backend.`)) return;
+                        setRollingBack(true);
+                        api.rollbackVersion(v.index).then(() => {
+                          setRollingBack(false);
+                          alert("Rollback initiated. Backend will restart.");
+                        }).catch((e) => {
+                          setRollingBack(false);
+                          alert(`Rollback failed: ${e.message}`);
+                        });
+                      }}
+                      className="rounded-md border border-gold-500 px-2 py-1 text-xs text-gold-500 hover:bg-gold-500 hover:text-ink-900 disabled:opacity-50"
+                    >
+                      <RotateCcw className="mr-1 inline h-3 w-3" /> Rollback
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </SectionCard>
         </TabsContent>
