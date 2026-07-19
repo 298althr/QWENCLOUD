@@ -29,6 +29,20 @@ const corsOriginFn = (origin, callback) => {
 };
 
 const app = express();
+
+// Cookie parser (lightweight, no dependency)
+app.use((req, _res, next) => {
+  req.cookies = {};
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    for (const pair of cookieHeader.split(";")) {
+      const [k, ...v] = pair.trim().split("=");
+      if (k) req.cookies[k] = decodeURIComponent(v.join("="));
+    }
+  }
+  next();
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: corsOriginFn, methods: ["GET", "POST"], credentials: true },
@@ -55,6 +69,24 @@ app.use(morgan("dev"));
 const { rateLimit } = require("./middleware/rateLimit");
 const apiRateLimit = rateLimit({ windowMs: 60 * 1000, max: 100, burst: 20 });
 app.use("/api", apiRateLimit);
+
+// ---- Human verification (proof-of-work anti-bot layer) ----
+const { issueChallenge, verifySolution, humanVerifyMiddleware } = require("./middleware/humanVerify");
+app.get("/api/human/challenge", (req, res) => {
+  res.json(issueChallenge());
+});
+app.post("/api/human/verify", (req, res) => {
+  const { challenge, nonce } = req.body || {};
+  if (!challenge || nonce === undefined) {
+    return res.status(400).json({ error: "Missing challenge or nonce" });
+  }
+  const result = verifySolution(challenge, String(nonce));
+  if (!result.valid) {
+    return res.status(403).json({ error: "Verification failed", reason: result.reason });
+  }
+  res.json({ token: result.token, expires_in: result.expires_in });
+});
+app.use("/api", humanVerifyMiddleware);
 
 // ---- Authentication ----
 const { apiKeyAuth, sessionTimeout } = require("./middleware/auth");

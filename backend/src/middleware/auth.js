@@ -6,6 +6,8 @@ const PUBLIC_ENDPOINTS = new Set([
   "/api/alibaba/instance",
   "/api/deployments/webhook",
   "/api/auth/login",
+  "/api/human/challenge",
+  "/api/human/verify",
 ]);
 
 const SESSION_TIMEOUT_MS = Number(process.env.SESSION_TIMEOUT_MS || 30 * 60 * 1000); // 30 min default

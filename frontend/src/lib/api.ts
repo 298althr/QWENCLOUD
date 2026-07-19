@@ -8,6 +8,9 @@ async function fetchAPI<T = any>(path: string, options?: RequestInit): Promise<T
   const apiKey = typeof window !== "undefined"
     ? localStorage.getItem("althr_api_key") || undefined
     : undefined;
+  const humanToken = typeof window !== "undefined"
+    ? localStorage.getItem("althr_human_token") || undefined
+    : undefined;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -16,12 +19,23 @@ async function fetchAPI<T = any>(path: string, options?: RequestInit): Promise<T
   if (apiKey) {
     headers["x-api-key"] = apiKey;
   }
+  if (humanToken) {
+    headers["x-human-token"] = humanToken;
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
     cache: "no-store",
   });
+  if (res.status === 403) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    if (err.code === "HUMAN_VERIFY_REQUIRED" && typeof window !== "undefined") {
+      localStorage.removeItem("althr_human_token");
+      window.location.href = "/verify";
+      throw new Error("Human verification required. Redirecting...");
+    }
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || `HTTP ${res.status}`);
