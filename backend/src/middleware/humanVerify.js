@@ -6,7 +6,10 @@
 
 const crypto = require("crypto");
 
-const DIFFICULTY = Number(process.env.HUMAN_POW_DIFFICULTY || 4); // 4 = ~65k attempts
+// DIFFICULTY = number of leading zero BYTES required in the SHA-256 hash.
+// Each byte of difficulty = 256x harder (8 bits). difficulty=2 -> ~65k avg attempts (~100-300ms in browser).
+// difficulty=3 -> ~16.7M avg attempts (~10-30s). difficulty=4 -> ~4.3B avg attempts (infeasible in browser).
+const DIFFICULTY = Number(process.env.HUMAN_POW_DIFFICULTY || 2); // 2 = ~65k attempts
 const TOKEN_TTL_MS = Number(process.env.HUMAN_TOKEN_TTL_MS || 2 * 60 * 60 * 1000); // 2 hours
 const CHALLENGE_TTL_MS = 5 * 60 * 1000; // 5 min to solve
 
