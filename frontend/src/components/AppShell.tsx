@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { useAgentStore } from "@/stores/agent-store";
 
 const COMMAND_ITEMS = [
-  { label: "Go to Overview", icon: <LayoutDashboard className="h-4 w-4" />, onSelect: () => window.location.href = "/", group: "Navigation" },
+  { label: "Go to Overview", icon: <LayoutDashboard className="h-4 w-4" />, onSelect: () => window.location.href = "/dashboard", group: "Navigation" },
   { label: "Go to Agent Console", icon: <Bot className="h-4 w-4" />, onSelect: () => window.location.href = "/agent", group: "Navigation" },
   { label: "Go to Terminal", icon: <TerminalSquare className="h-4 w-4" />, onSelect: () => window.location.href = "/terminal", group: "Navigation" },
   { label: "Go to Monitoring", icon: <Activity className="h-4 w-4" />, onSelect: () => window.location.href = "/monitoring", group: "Navigation" },
@@ -111,7 +111,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         clearTimeout(gTimer);
         gPressed = false;
         const map: Record<string, string> = {
-          o: "/", a: "/agent", t: "/terminal", m: "/monitoring",
+          o: "/dashboard", a: "/agent", t: "/terminal", m: "/monitoring",
           s: "/settings", f: "/files", c: "/security", l: "/memory",
           v: "/analytics", p: "/deployments",
         };

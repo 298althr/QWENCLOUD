@@ -32,7 +32,7 @@ const GROUPS = [
   {
     label: "Core",
     items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/agent", label: "AI Assistant", icon: Bot },
     ],
   },
