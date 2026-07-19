@@ -17,6 +17,7 @@ const path = require("path");
 const router = express.Router();
 const { executeTool } = require("../qwen/toolExecutor");
 const { audit } = require("../utils/audit");
+const { logAction } = require("../utils/actionHistory");
 const sandbox = require("../utils/sandbox");
 
 const FILES_ROOT = process.env.FILES_ROOT || "/var/althr-volumes/files";
@@ -102,6 +103,7 @@ router.post("/write", async (req, res) => {
   try {
     const result = await executeTool("write_file", { path: filePath, content });
     await audit({ operation: "execute", actor: user.username, target: filePath, target_type: "file", reasoning: "direct file write via API", result: result.ok ? "success" : "failure" });
+    logAction({ category: "file", action: "write", target: filePath, actor: user.username, result: result.ok ? "success" : "failure" }).catch(() => {});
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -121,6 +123,7 @@ router.post("/mkdir", async (req, res) => {
   try {
     fs.mkdirSync(dirPath, { recursive: true });
     await audit({ operation: "execute", actor: user.username, target: dirPath, target_type: "directory", reasoning: "directory created via API", result: "success" });
+    logAction({ category: "file", action: "mkdir", target: dirPath, actor: user.username, result: "success" }).catch(() => {});
     res.json({ ok: true, path: dirPath });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -146,6 +149,7 @@ router.post("/delete", async (req, res) => {
       fs.unlinkSync(targetPath);
     }
     await audit({ operation: "delete", actor: user.username, target: targetPath, target_type: stat.isDirectory() ? "directory" : "file", reasoning: "file deleted via API", result: "success" });
+    logAction({ category: "file", action: "delete", target: targetPath, actor: user.username, result: "success" }).catch(() => {});
     res.json({ ok: true, path: targetPath, deleted: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -175,6 +179,7 @@ router.post("/copy", async (req, res) => {
       fs.copyFileSync(src, dest);
     }
     await audit({ operation: "copy", actor: user.username, target: `${src} -> ${dest}`, target_type: "file", reasoning: "file copied via API", result: "success" });
+    logAction({ category: "file", action: "copy", target: `${src} -> ${dest}`, actor: user.username, result: "success" }).catch(() => {});
     res.json({ ok: true, src, dest, copied: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -197,6 +202,7 @@ router.post("/move", async (req, res) => {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.renameSync(src, dest);
     await audit({ operation: "move", actor: user.username, target: `${src} -> ${dest}`, target_type: "file", reasoning: "file moved via API", result: "success" });
+    logAction({ category: "file", action: "move", target: `${src} -> ${dest}`, actor: user.username, result: "success" }).catch(() => {});
     res.json({ ok: true, src, dest, moved: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -219,6 +225,7 @@ router.post("/rename", async (req, res) => {
     const newPath = path.join(dir, newName);
     fs.renameSync(oldPath, newPath);
     await audit({ operation: "rename", actor: user.username, target: `${oldPath} -> ${newPath}`, target_type: "file", reasoning: "file renamed via API", result: "success" });
+    logAction({ category: "file", action: "rename", target: `${oldPath} -> ${newPath}`, actor: user.username, result: "success" }).catch(() => {});
     res.json({ ok: true, oldPath, newPath, renamed: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -256,6 +263,7 @@ router.post("/upload", async (req, res) => {
       return res.status(400).json({ error: "content is required" });
     }
     await audit({ operation: "upload", actor: user.username, target: destPath, target_type: "file", reasoning: "file uploaded via API", result: "success" });
+    logAction({ category: "file", action: "upload", target: destPath, actor: user.username, result: "success" }).catch(() => {});
     res.json({ ok: true, path: destPath, uploaded: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

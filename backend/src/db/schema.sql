@@ -314,6 +314,49 @@ CREATE INDEX IF NOT EXISTS idx_mcp_ts ON mcp_tool_invocations(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_mcp_tool ON mcp_tool_invocations(tool_name);
 
 -- ============================================================
+-- MONITOR METRICS HISTORY — time-series for history graphs
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS monitor_metrics_history (
+    id              SERIAL PRIMARY KEY,
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    cpu             DECIMAL(6,2) NOT NULL,
+    ram             DECIMAL(6,2) NOT NULL,
+    ram_used_mb     INTEGER NOT NULL,
+    ram_available_mb INTEGER NOT NULL,
+    ram_total_mb    INTEGER NOT NULL,
+    ram_buff_cache_mb INTEGER,
+    disk            DECIMAL(6,2),
+    network_rx_mb   INTEGER,
+    network_tx_mb   INTEGER,
+    network_rx_errors INTEGER,
+    network_tx_errors INTEGER,
+    latency_ms      DECIMAL(8,2),
+    uptime_seconds  BIGINT,
+    tick_count      INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_metrics_history_ts ON monitor_metrics_history(timestamp DESC);
+
+-- ============================================================
+-- ACTION HISTORY — structured log for UI consumption
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS action_history (
+    id              SERIAL PRIMARY KEY,
+    timestamp       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    category        VARCHAR(50) NOT NULL,
+    action          VARCHAR(100) NOT NULL,
+    target          TEXT,
+    actor           VARCHAR(100) NOT NULL DEFAULT 'system',
+    result          VARCHAR(20) NOT NULL DEFAULT 'success',
+    detail          JSONB,
+    duration_ms     INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_action_history_ts ON action_history(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_action_history_cat ON action_history(category);
+CREATE INDEX IF NOT EXISTS idx_action_history_action ON action_history(action);
+
+-- ============================================================
 -- UNIQUE CONSTRAINTS FOR UPSERT SUPPORT
 -- ============================================================
 

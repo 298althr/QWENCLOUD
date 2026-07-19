@@ -20,6 +20,7 @@ const express = require("express");
 const router = express.Router();
 const monitor = require("../monitors/monitor");
 const { audit } = require("../utils/audit");
+const { logAction } = require("../utils/actionHistory");
 const { addTerminalLog } = require("../utils/terminalLog");
 const { buildTopology, getImpactAnalysis } = require("../utils/topology");
 const { listAllContainers, containerAction: dockerContainerAction } = require("../utils/docker");
@@ -119,6 +120,8 @@ router.post("/anomaly", async (req, res) => {
       reasoning: `Simulated ${scenario.anomaly.type} for AI calibration/demo`,
       result: "success",
     }).catch((e) => console.warn("[simulate] audit skipped:", e.message));
+
+    logAction({ category: "simulate", action: scenario.anomaly.type, target: scenario.anomaly.message, actor: "human:demo", result: "success", detail: scenario.anomaly }).catch(() => {});
 
     // Get io for immediate WebSocket emission
     const io = req.app.get("io");

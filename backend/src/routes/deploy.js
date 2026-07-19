@@ -11,6 +11,7 @@ const router = express.Router();
 const { deployFromRepo, deployStack, rollbackDeployment, getDeploymentContainers } = require("../deploy/deployEngine");
 const { safCheck } = require("../pipeline/saf");
 const { audit } = require("../utils/audit");
+const { logAction } = require("../utils/actionHistory");
 const { query } = require("../db/pool");
 const { getContainerLogs, containerAction } = require("../utils/docker");
 
@@ -46,6 +47,7 @@ router.post("/", async (req, res) => {
         safResult: saf,
         result: result.success ? "success" : "failure",
       });
+      logAction({ category: "deployment", action: "deploy", target: repo_url, actor: "api", result: result.success ? "success" : "failure", detail: result }).catch(() => {});
     } catch (auditErr) {
       console.error("[deploy] audit log failed (non-fatal):", auditErr.message);
     }

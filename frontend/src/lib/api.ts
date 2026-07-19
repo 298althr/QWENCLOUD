@@ -83,6 +83,10 @@ export const api = {
   monitorStatus: () => fetchAPI("/monitor/status"),
   stopMonitor: () => fetchAPI("/monitor/stop", { method: "POST" }),
   startMonitor: () => fetchAPI("/monitor/start", { method: "POST" }),
+  monitorHistory: (limit = 60, metric = "all") =>
+    fetchAPI(`/monitor/history?limit=${limit}&metric=${metric}`),
+  actionHistory: (limit = 50, category?: string) =>
+    fetchAPI(`/monitor/actions?limit=${limit}${category ? `&category=${category}` : ""}`),
 
   // Command
   runCommand: (command: string, timeout?: number) =>

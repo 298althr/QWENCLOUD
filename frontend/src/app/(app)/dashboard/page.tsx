@@ -52,6 +52,20 @@ export default function HomePage() {
   const diskHistory = useRef<{ time: string; value: number }[]>([]);
 
   useEffect(() => {
+    // Load historical metrics on mount to pre-fill graphs
+    api.monitorHistory(60, "all").then((r) => {
+      if (r.metrics && r.metrics.length > 0) {
+        const fmtTime = (ts: string) => new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        cpuHistory.current = r.metrics.map((m: any) => ({ time: fmtTime(m.timestamp), value: Number(m.cpu) }));
+        ramHistory.current = r.metrics.map((m: any) => ({ time: fmtTime(m.timestamp), value: Number(m.ram) }));
+        const diskMetrics = r.metrics.filter((m: any) => m.disk !== null);
+        diskHistory.current = diskMetrics.map((m: any) => ({ time: fmtTime(m.timestamp), value: Number(m.disk) }));
+        if (r.metrics.length > 0) {
+          const latest = r.metrics[r.metrics.length - 1];
+          setMetrics({ cpu: Number(latest.cpu), ram: Number(latest.ram), disk: latest.disk !== null ? Number(latest.disk) : null });
+        }
+      }
+    }).catch(() => {});
     loadMonitorStatus();
     loadContainers().then(() => setDataLoaded(true));
     loadKillSwitch();

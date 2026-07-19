@@ -12,6 +12,7 @@ const {
 } = require("../utils/docker");
 const { buildTopology, getImpactAnalysis } = require("../utils/topology");
 const monitor = require("../monitors/monitor");
+const { logAction } = require("../utils/actionHistory");
 
 router.get("/topology", async (req, res) => {
   try {
@@ -105,6 +106,7 @@ router.post("/containers/:id/exec", async (req, res) => {
     const { command } = req.body || {};
     if (!command) return res.status(400).json({ error: "command is required" });
     const result = await execInContainer(req.params.id, command);
+    logAction({ category: "container", action: "exec", target: `${req.params.id}:${command}`, actor: req.user?.username || "api", result: result.exitCode === 0 ? "success" : "failure", detail: result }).catch(() => {});
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -118,6 +120,7 @@ router.post("/containers/:id/action", async (req, res) => {
       return res.status(400).json({ error: "action must be stop, start, restart, or remove" });
     }
     const result = await containerAction(req.params.id, action);
+    logAction({ category: "container", action, target: req.params.id, actor: req.user?.username || "api", result: result.ok ? "success" : "failure", detail: result }).catch(() => {});
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -134,6 +137,7 @@ router.post("/containers/batch", async (req, res) => {
       return res.status(400).json({ error: "action must be stop, start, or restart" });
     }
     const result = await batchAction(ids, action);
+    logAction({ category: "container", action: `batch_${action}`, target: ids.join(","), actor: req.user?.username || "api", result: "success", detail: result }).catch(() => {});
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });

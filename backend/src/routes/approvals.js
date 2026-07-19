@@ -7,6 +7,7 @@ const express = require("express");
 const router = express.Router();
 const { listPending, approveAction, rejectAction } = require("../pipeline/approvals");
 const { query } = require("../db/pool");
+const { logAction } = require("../utils/actionHistory");
 
 router.get("/", async (req, res) => {
   try {
@@ -58,6 +59,7 @@ router.post("/:id/approve", async (req, res) => {
   const approver = req.user?.username ? `human:${req.user.username}` : "human:operator";
   try {
     const result = await approveAction({ action_id: req.params.id, approver, io });
+    logAction({ category: "approval", action: "approve", target: req.params.id, actor: approver, result: "success", detail: result }).catch(() => {});
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -74,6 +76,7 @@ router.post("/:id/reject", async (req, res) => {
       approver,
       io,
     });
+    logAction({ category: "approval", action: "reject", target: req.params.id, actor: approver, result: "success", detail: { reason: req.body?.reason } }).catch(() => {});
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message });

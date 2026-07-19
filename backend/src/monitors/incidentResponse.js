@@ -15,6 +15,7 @@
 const { v4: uuidv4 } = require("uuid");
 const memory = require("../memory/store");
 const { audit } = require("../utils/audit");
+const { logAction } = require("../utils/actionHistory");
 const { lookupSOP, recordSOPResult } = require("../memory/learning");
 const { createPendingAction, approveAction } = require("../pipeline/approvals");
 const { safCheck } = require("../pipeline/saf");
@@ -125,6 +126,8 @@ async function notifyEscalation({ incident, reason, emitIo }) {
     result: "escalated",
   });
 
+  logAction({ category: "incident", action: "escalate", target: incident.incident_id, actor: "agent", result: "escalated", detail: { type: incident.anomaly.type, reason } }).catch(() => {});
+
   // Persist escalation in M6 (lessons / incidents)
   await memory.store("M6", `Incident ${incident.incident_id} escalated: ${reason}`, {
     incident_id: incident.incident_id,
@@ -172,6 +175,8 @@ async function recordIncidentResolution(incident, success, resultData, emitIo) {
     reasoning: incident.remediation_action || "manual intervention required",
     result: success ? "success" : "failure",
   });
+
+  logAction({ category: "incident", action: success ? "resolve" : "fail", target: incident.incident_id, actor: "agent", result: success ? "success" : "failure", detail: { type: incident.anomaly.type, action: incident.remediation_action } }).catch(() => {});
 
   await memory.store("M6", `Incident ${incident.incident_id} ${success ? "resolved" : "not resolved"}`, {
     incident_id: incident.incident_id,

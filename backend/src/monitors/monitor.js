@@ -26,11 +26,13 @@ const { v4: uuidv4 } = require("uuid");
 
 const memory = require("../memory/store");
 const { audit } = require("../utils/audit");
+const { logAction } = require("../utils/actionHistory");
 const tokenTracker = require("../qwen/tokenTracker");
 const { addTerminalLog } = require("../utils/terminalLog");
 const { buildTopology, getImpactAnalysis } = require("../utils/topology");
 const { listAllContainers, getParsedStats } = require("../utils/docker");
 const incidentResponse = require("./incidentResponse");
+const { query } = require("../db/pool");
 
 // Anomaly thresholds (configurable via env)
 const THRESHOLDS = {
@@ -88,6 +90,10 @@ async function tick() {
 
   const metrics = await collectMetrics();
   const anomalies = detectAnomalies(metrics);
+
+  persistMetrics(metrics).catch((e) =>
+    console.warn("[monitor] persist metrics failed:", e.message)
+  );
 
   for (const anomaly of anomalies) {
     if (killSwitchActive) {
@@ -299,6 +305,16 @@ async function handleAnomaly(anomaly, metrics, opts = {}) {
     ...anomaly.data,
   });
 
+  // 1b. Log to action_history
+  logAction({
+    category: "monitor",
+    action: anomaly.type,
+    target: anomaly.message,
+    actor: "monitor",
+    result: anomaly.severity,
+    detail: { ...anomaly.data, anomalyId },
+  }).catch(() => {});
+
   // 2. Emit alert to dashboard
   if (emitIo) {
     emitIo.emit("anomaly_alert", { id: anomalyId, ...anomaly, timestamp: new Date().toISOString(), inCooldown });
@@ -473,4 +489,51 @@ async function getServiceHealth() {
   }
 }
 
-module.exports = { start, stop, tick, collectMetrics, detectAnomalies, handleAnomaly, checkCascadeEffects, getServiceHealth, THRESHOLDS };
+/**
+ * Persist metrics to monitor_metrics_history table for history graphs.
+ */
+async function persistMetrics(metrics) {
+  await query(
+    `INSERT INTO monitor_metrics_history
+       (cpu, ram, ram_used_mb, ram_available_mb, ram_total_mb, ram_buff_cache_mb,
+        disk, network_rx_mb, network_tx_mb, network_rx_errors, network_tx_errors,
+        latency_ms, uptime_seconds, tick_count)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    [
+      metrics.cpu,
+      metrics.ram,
+      metrics.ram_used_mb,
+      metrics.ram_available_mb,
+      metrics.ram_total_mb,
+      metrics.ram_buff_cache_mb || null,
+      metrics.disk,
+      metrics.network?.rx_mb || null,
+      metrics.network?.tx_mb || null,
+      metrics.network?.rx_errors || 0,
+      metrics.network?.tx_errors || 0,
+      metrics.latency_ms,
+      metrics.uptime_seconds || null,
+      state.tickCount,
+    ]
+  );
+}
+
+/**
+ * Retrieve historical metrics for graphing.
+ * @param {number} limit  Number of most recent rows to return (default 60)
+ * @param {string} metric Optional filter: 'cpu', 'ram', 'disk', 'network', 'all'
+ */
+async function getMetricsHistory(limit = 60, metric = "all") {
+  const cols = metric === "cpu" ? "id, timestamp, cpu" :
+    metric === "ram" ? "id, timestamp, ram, ram_used_mb, ram_available_mb, ram_total_mb, ram_buff_cache_mb" :
+    metric === "disk" ? "id, timestamp, disk" :
+    metric === "network" ? "id, timestamp, network_rx_mb, network_tx_mb, network_rx_errors, network_tx_errors, latency_ms" :
+    "*";
+  const result = await query(
+    `SELECT ${cols} FROM monitor_metrics_history ORDER BY timestamp DESC LIMIT $1`,
+    [Math.min(limit, 1000)]
+  );
+  return result.rows.reverse();
+}
+
+module.exports = { start, stop, tick, collectMetrics, detectAnomalies, handleAnomaly, checkCascadeEffects, getServiceHealth, persistMetrics, getMetricsHistory, THRESHOLDS };

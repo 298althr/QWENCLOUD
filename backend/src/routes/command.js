@@ -7,6 +7,7 @@ const router = express.Router();
 const { safCheck } = require("../pipeline/saf");
 const { executeTool } = require("../qwen/toolExecutor");
 const { audit } = require("../utils/audit");
+const { logAction } = require("../utils/actionHistory");
 const tokenTracker = require("../qwen/tokenTracker");
 const { qwen, selectModel } = require("../qwen/client");
 const { guardedCreate } = require("../qwen/guardrails");
@@ -24,6 +25,7 @@ router.post("/", async (req, res) => {
       const result = await sandbox.wrapForSandbox(command, timeout || 10000);
       if (result) {
         await audit({ operation: "execute", actor: "api", target: command, target_type: "command", reasoning: "sandbox mode execution", safResult: { passed: true, reason: "sandbox mode" }, result: result.exit_code === 0 ? "success" : "failure" });
+    logAction({ category: "command", action: "sandbox_execute", target: command, actor: "api", result: result.exit_code === 0 ? "success" : "failure", detail: result }).catch(() => {});
 
         const io = req.app.get("io");
         addTerminalLog({
@@ -44,12 +46,14 @@ router.post("/", async (req, res) => {
   const saf = await safCheck(command, "command", "low", { username: "api", role: "admin" }, 1.0, false);
   if (!saf.passed) {
     await audit({ operation: "block", actor: "api", target: command, target_type: "command", reasoning: "SAF blocked", safResult: saf, result: "blocked" });
+    logAction({ category: "command", action: "blocked", target: command, actor: "api", result: "blocked", detail: saf }).catch(() => {});
     return res.status(403).json({ error: "blocked by SAF", saf });
   }
 
   try {
     const result = await executeTool("execute_command", { command, timeout: timeout || 10000 });
     await audit({ operation: "execute", actor: "api", target: command, target_type: "command", reasoning: "direct API call", safResult: saf, result: result.exit_code === 0 ? "success" : "failure" });
+    logAction({ category: "command", action: "execute", target: command, actor: "api", result: result.exit_code === 0 ? "success" : "failure", detail: result }).catch(() => {});
 
     // Persist to terminal log and emit via WebSocket
     const io = req.app.get("io");

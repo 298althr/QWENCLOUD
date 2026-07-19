@@ -9,7 +9,7 @@ import { AreaChart } from "@/components/charts/AreaChart";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { PageHeader, SectionCard, MetricCard, StatusPill, PageLoader } from "@/components/design-system";
 import RcaPanel from "@/components/RcaPanel";
-import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle } from "lucide-react";
+import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAX_POINTS = 60;
@@ -31,8 +31,26 @@ export default function MonitoringPage() {
   const diskHistory = useRef<{ time: string; value: number }[]>([]);
   const [, forceTick] = useState(0);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [actionHistory, setActionHistory] = useState<any[]>([]);
 
   useEffect(() => {
+    // Load historical metrics on mount to pre-fill graphs
+    api.monitorHistory(60, "all").then((r) => {
+      if (r.metrics && r.metrics.length > 0) {
+        const fmtTime = (ts: string) => new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        cpuHistory.current = r.metrics.map((m: any) => ({ time: fmtTime(m.timestamp), value: Number(m.cpu) }));
+        ramHistory.current = r.metrics.map((m: any) => ({ time: fmtTime(m.timestamp), value: Number(m.ram) }));
+        const diskMetrics = r.metrics.filter((m: any) => m.disk !== null);
+        diskHistory.current = diskMetrics.map((m: any) => ({ time: fmtTime(m.timestamp), value: Number(m.disk) }));
+        if (r.metrics.length > 0) {
+          const latest = r.metrics[r.metrics.length - 1];
+          setMetrics({ cpu: Number(latest.cpu), ram: Number(latest.ram), disk: latest.disk !== null ? Number(latest.disk) : null });
+        }
+        forceTick((t) => t + 1);
+      }
+    }).catch(() => {});
+    // Load action history
+    api.actionHistory(20).then((r) => setActionHistory(r.actions || [])).catch(() => {});
     api.processes("cpu", 50).then((r) => setProcesses(r.processes || [])).catch(() => {});
     api.ports().then((r) => setPorts(r.ports || [])).catch(() => {});
     api.dockerContainers().then((r) => { setContainers(r.containers || []); setDataLoaded(true); }).catch(() => setDataLoaded(true));
@@ -76,6 +94,15 @@ export default function MonitoringPage() {
     { key: "image", header: "Image", render: (r) => <span className="text-xs text-ink-500">{r.image || "—"}</span> },
     { key: "status", header: "Status", render: (r) => <Badge variant={r.status?.includes("Up") ? "success" : "critical"}>{r.status || "unknown"}</Badge> },
     { key: "ports", header: "Ports", render: (r) => <span className="font-mono text-xs text-ink-500">{r.ports || "—"}</span> },
+  ];
+
+  const actionColumns: Column<any>[] = [
+    { key: "timestamp", header: "Time", render: (r) => <span className="font-mono text-xs text-ink-500">{new Date(r.timestamp).toLocaleString("en-US", { hour12: false })}</span> },
+    { key: "category", header: "Category", render: (r) => <Badge variant="outline">{r.category}</Badge> },
+    { key: "action", header: "Action", render: (r) => <span className="font-mono text-sm text-gold-700">{r.action}</span> },
+    { key: "target", header: "Target", render: (r) => <span className="text-xs text-ink-400 truncate max-w-[200px] block">{r.target || "—"}</span> },
+    { key: "actor", header: "Actor", render: (r) => <span className="text-xs text-ink-300">{r.actor}</span> },
+    { key: "result", header: "Result", render: (r) => <Badge variant={r.result === "success" ? "success" : r.result === "failure" ? "critical" : "warning"}>{r.result}</Badge> },
   ];
 
   if (!dataLoaded) {
@@ -132,6 +159,7 @@ export default function MonitoringPage() {
           <TabsTrigger value="processes"><Cpu className="mr-2 h-4 w-4" /> Processes</TabsTrigger>
           <TabsTrigger value="ports"><Network className="mr-2 h-4 w-4" /> Ports</TabsTrigger>
           <TabsTrigger value="docker"><Container className="mr-2 h-4 w-4" /> Docker</TabsTrigger>
+          <TabsTrigger value="actions"><History className="mr-2 h-4 w-4" /> Actions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics" className="mt-4">
@@ -196,6 +224,19 @@ export default function MonitoringPage() {
                 emptyMessage="No containers running"
               />
             )}
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="actions" className="mt-4">
+          <SectionCard title="Action History" description="All logged actions across the system" delay={0.1}>
+            <DataTable
+              columns={actionColumns}
+              data={actionHistory}
+              searchable
+              searchKeys={["category", "action", "target", "actor"]}
+              pageSize={15}
+              emptyMessage="No actions logged yet"
+            />
           </SectionCard>
         </TabsContent>
       </Tabs>

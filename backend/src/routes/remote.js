@@ -9,6 +9,7 @@ const { listHosts, getHost, createHost, deleteHost } = require("../remote/hosts"
 const { isCommandAllowed } = require("../config/allowed-commands");
 const { safCheck } = require("../pipeline/saf");
 const { audit } = require("../utils/audit");
+const { logAction } = require("../utils/actionHistory");
 
 const DEFAULT_TIMEOUT = 15000;
 
@@ -139,6 +140,7 @@ router.post("/hosts", async (req, res) => {
       reasoning: "created remote host via API",
       result: "success"
     });
+    logAction({ category: "remote", action: "create_host", target: id, actor: user.username, result: "success" }).catch(() => {});
     res.json({ success: true, id });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -161,6 +163,7 @@ router.delete("/hosts/:id", async (req, res) => {
       reasoning: "deleted remote host via API",
       result: "success"
     });
+    logAction({ category: "remote", action: "delete_host", target: req.params.id, actor: user.username, result: "success" }).catch(() => {});
     res.json({ success: true, id: req.params.id });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -208,6 +211,7 @@ router.post("/:hostId/command", async (req, res) => {
       safResult: saf,
       result: result.exit_code === 0 ? "success" : "failure",
     });
+    logAction({ category: "remote", action: "command", target: `${host.id}:${command}`, actor: getUser(req).username, result: result.exit_code === 0 ? "success" : "failure", detail: result }).catch(() => {});
     res.json(result);
   } catch (e) {
     await audit({
@@ -291,6 +295,7 @@ router.post("/:hostId/files/write", async (req, res) => {
       reasoning: "remote file write via SSH",
       result: result.exit_code === 0 ? "success" : "failure",
     });
+    logAction({ category: "remote", action: "file_write", target: `${host.id}:${safePath}`, actor: user.username, result: result.exit_code === 0 ? "success" : "failure" }).catch(() => {});
     if (result.exit_code !== 0) {
       return res.status(500).json({ ok: false, path: safePath, error: result.stderr || "write failed" });
     }
@@ -356,6 +361,7 @@ async function runDockerAction(req, res, action) {
       reasoning: `docker ${action}`,
       result: result.exit_code === 0 ? "success" : "failure",
     });
+    logAction({ category: "remote", action: `docker_${action}`, target: `${host.id}:${containerId}`, actor: user.username, result: result.exit_code === 0 ? "success" : "failure" }).catch(() => {});
     res.json({ ok: result.exit_code === 0, action, containerId, stdout: result.stdout, stderr: result.stderr, exit_code: result.exit_code });
   } catch (e) {
     res.status(500).json({ error: e.message, code: e.code });
