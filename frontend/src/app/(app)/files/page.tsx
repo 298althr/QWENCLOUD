@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { api, API_BASE } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { PageHeader, SectionCard } from "@/components/design-system";
+import { PageHeader, SectionCard, PageLoader } from "@/components/design-system";
 import {
   FolderOpen, FileText, Home, Save, FolderPlus, FilePlus,
   Copy, Scissors, ClipboardPaste, Trash2, Download, Upload,
@@ -37,6 +37,7 @@ export default function FilesPage() {
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: Entry } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export default function FilesPage() {
       setError(e.message);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   }, []);
 
@@ -265,6 +267,10 @@ export default function FilesPage() {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  if (initialLoad) {
+    return <PageLoader variant="list" title="Loading files..." />;
+  }
 
   return (
     <div className="space-y-xl">

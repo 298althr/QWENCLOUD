@@ -13,3 +13,4 @@ export { CodeBlock } from "./CodeBlock";
 export { GlobalAlertBanner, type AlertSeverity } from "./GlobalAlertBanner";
 export { EmptyState } from "./EmptyState";
 export { ErrorState } from "./ErrorState";
+export { PageLoader } from "./PageLoader";

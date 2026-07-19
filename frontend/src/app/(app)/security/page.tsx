@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ShieldCheck, Loader2, Lock } from "lucide-react";
+import { PageLoader } from "@/components/design-system";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -54,6 +55,10 @@ export default function SecurityPage() {
     { key: "result", header: "Result", render: (r) => <Badge variant={r.result === "success" ? "success" : r.result === "blocked" || r.result === "failure" ? "critical" : "info"}>{r.result}</Badge> },
     { key: "confidence", header: "Confidence", render: (r) => r.confidence !== null ? `${(r.confidence * 100).toFixed(0)}%` : "—" },
   ];
+
+  if (auditLoading) {
+    return <PageLoader variant="list" title="Loading security audit..." />;
+  }
 
   return (
     <div className="space-y-6">

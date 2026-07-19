@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { onServerMetrics, onActionUpdate, onAnomalyAlert, onApprovalNeeded } from "@/lib/websocket";
 import { api } from "@/lib/api";
 import { AreaChart } from "@/components/charts/AreaChart";
-import { PageHeader, MetricCard, SectionCard, ActivityFeed, StatusPill } from "@/components/design-system";
+import { PageHeader, MetricCard, SectionCard, ActivityFeed, StatusPill, PageLoader } from "@/components/design-system";
 import ApprovalCard from "@/components/ApprovalCard";
 import { Cpu, MemoryStick, HardDrive, Activity, CheckCircle2, AlertTriangle, ShieldCheck, Zap, Power, Play, RotateCcw, AlertOctagon, Boxes } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +45,7 @@ export default function HomePage() {
   const [killSwitchReason, setKillSwitchReason] = useState("");
   const [serviceHealth, setServiceHealth] = useState<any>(null);
   const [simulatingService, setSimulatingService] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [detailModal, setDetailModal] = useState<"cpu" | "ram" | "disk" | null>(null);
   const cpuHistory = useRef<{ time: string; value: number }[]>([]);
   const ramHistory = useRef<{ time: string; value: number }[]>([]);
@@ -52,7 +53,7 @@ export default function HomePage() {
 
   useEffect(() => {
     loadMonitorStatus();
-    loadContainers();
+    loadContainers().then(() => setDataLoaded(true));
     loadKillSwitch();
     loadServiceHealth();
     const healthInterval = setInterval(() => loadServiceHealth(), 15000);
@@ -204,6 +205,10 @@ export default function HomePage() {
       setContainerLoading(null);
     }
   };
+
+  if (!dataLoaded) {
+    return <PageLoader variant="dashboard" title="Loading dashboard..." />;
+  }
 
   return (
     <div className="space-y-xl">

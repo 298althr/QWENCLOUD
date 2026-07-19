@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AreaChart } from "@/components/charts/AreaChart";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { PageHeader, SectionCard, MetricCard, StatusPill } from "@/components/design-system";
+import { PageHeader, SectionCard, MetricCard, StatusPill, PageLoader } from "@/components/design-system";
 import RcaPanel from "@/components/RcaPanel";
 import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,11 +30,12 @@ export default function MonitoringPage() {
   const ramHistory = useRef<{ time: string; value: number }[]>([]);
   const diskHistory = useRef<{ time: string; value: number }[]>([]);
   const [, forceTick] = useState(0);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     api.processes("cpu", 50).then((r) => setProcesses(r.processes || [])).catch(() => {});
     api.ports().then((r) => setPorts(r.ports || [])).catch(() => {});
-    api.dockerContainers().then((r) => setContainers(r.containers || [])).catch(() => {});
+    api.dockerContainers().then((r) => { setContainers(r.containers || []); setDataLoaded(true); }).catch(() => setDataLoaded(true));
     const off = onServerMetrics((m) => {
       setMetrics({ cpu: m.cpu, ram: m.ram, disk: m.disk });
       const now = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -76,6 +77,10 @@ export default function MonitoringPage() {
     { key: "status", header: "Status", render: (r) => <Badge variant={r.status?.includes("Up") ? "success" : "critical"}>{r.status || "unknown"}</Badge> },
     { key: "ports", header: "Ports", render: (r) => <span className="font-mono text-xs text-ink-500">{r.ports || "—"}</span> },
   ];
+
+  if (!dataLoaded) {
+    return <PageLoader variant="dashboard" title="Loading live metrics..." />;
+  }
 
   return (
     <div className="space-y-xl">

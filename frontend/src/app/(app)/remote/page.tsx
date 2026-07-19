@@ -12,6 +12,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Server, Terminal, FolderOpen, FileText, Container, Cpu, Network, Home, Save, Play, RefreshCw, Power, Square, RotateCw, ScrollText, Eye } from "lucide-react";
+import { PageLoader } from "@/components/design-system";
 import { toast } from "sonner";
 
 interface RemoteHost {
@@ -25,7 +26,7 @@ interface RemoteHost {
 export default function RemotePage() {
   const [hosts, setHosts] = useState<RemoteHost[]>([]);
   const [selectedHost, setSelectedHost] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Host creation
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -85,6 +86,8 @@ export default function RemotePage() {
     } catch (e: any) {
       setError(e.message);
       setHosts([]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -296,6 +299,10 @@ export default function RemotePage() {
     { key: "protocol", header: "Protocol", render: (r) => r.protocol || "tcp" },
     { key: "localAddress", header: "Local", render: (r) => <span className="font-mono text-xs">{r.localAddress}</span> },
   ];
+
+  if (loading) {
+    return <PageLoader variant="list" title="Loading remote hosts..." />;
+  }
 
   return (
     <div className="space-y-6">

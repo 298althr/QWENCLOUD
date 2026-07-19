@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader, SectionCard, StatusPill } from "@/components/design-system";
+import { PageHeader, SectionCard, StatusPill, PageLoader } from "@/components/design-system";
 import { CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, AlertTriangle, FileText, Cpu } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -40,6 +40,7 @@ export default function ApprovalsPage() {
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectDialog, setRejectDialog] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -54,6 +55,7 @@ export default function ApprovalsPage() {
       toast.error(`Failed to load approvals: ${e.message}`);
     } finally {
       setLoading(false);
+      setDataLoaded(true);
     }
   }, []);
 
@@ -109,6 +111,10 @@ export default function ApprovalsPage() {
 
   const getRiskVariant = (risk: string): "critical" | "warning" | "success" =>
     risk === "high" ? "critical" : risk === "medium" ? "warning" : "success";
+
+  if (!dataLoaded) {
+    return <PageLoader variant="list" title="Loading approvals..." />;
+  }
 
   return (
     <div className="space-y-xl">

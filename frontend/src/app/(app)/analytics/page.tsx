@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/charts/KPICard";
 import { AreaChart } from "@/components/charts/AreaChart";
-import { PageHeader, SectionCard } from "@/components/design-system";
+import { PageHeader, SectionCard, PageLoader } from "@/components/design-system";
 import { TrendingUp, BarChart3, Layers } from "lucide-react";
 
 export default function AnalyticsPage() {
@@ -26,6 +26,10 @@ export default function AnalyticsPage() {
   const totalDecisions = dqTrend.reduce((sum, d) => sum + d.decision_count, 0);
 
   const chartData = dqTrend.map((d) => ({ time: d.date, value: Number(d.dq_score) }));
+
+  if (loading) {
+    return <PageLoader variant="grid" title="Loading analytics..." />;
+  }
 
   return (
     <div className="space-y-xl">

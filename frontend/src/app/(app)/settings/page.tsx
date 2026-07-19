@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { PageHeader, SectionCard, MetricCard, StatusPill, ConfidenceMeter } from "@/components/design-system";
+import { PageHeader, SectionCard, MetricCard, StatusPill, ConfidenceMeter, PageLoader } from "@/components/design-system";
 import { SlidersHorizontal, DollarSign, Gauge, Zap, RefreshCw, Cpu, FlaskConical, AlertTriangle, Key } from "lucide-react";
 import { api } from "@/lib/api";
 import { SecretText, SecretField } from "@/components/SecretField";
@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [loadingUsage, setLoadingUsage] = useState(false);
   const [sandboxMode, setSandboxMode] = useState(false);
   const [sandboxLoading, setSandboxLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const fetchUsage = useCallback(async (window?: string) => {
     setLoadingUsage(true);
@@ -39,6 +40,7 @@ export default function SettingsPage() {
       toast.error(`Failed to load usage: ${e.message}`);
     } finally {
       setLoadingUsage(false);
+      setDataLoaded(true);
     }
   }, [usageWindow]);
 
@@ -104,6 +106,10 @@ export default function SettingsPage() {
   const budgetStatus = (used: number, limit: number) => used >= limit * 0.9 ? "crit" : used >= limit * 0.7 ? "warn" : "ok";
   const dailyStatus = usage?.budgets ? budgetStatus(usage.budgets.dailyUsed, usage.budgets.daily) : "ok";
   const monthlyStatus = usage?.budgets ? budgetStatus(usage.budgets.monthlyUsed, usage.budgets.monthly) : "ok";
+
+  if (!dataLoaded) {
+    return <PageLoader variant="settings" title="Loading settings..." />;
+  }
 
   return (
     <div className="space-y-xl">

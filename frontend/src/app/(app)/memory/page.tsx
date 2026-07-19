@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { PageHeader, SectionCard, MetricCard } from "@/components/design-system";
+import { PageHeader, SectionCard, MetricCard, PageLoader } from "@/components/design-system";
 import { Search, Brain, Clock, Zap, Target, TrendingUp, Database, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,6 +28,7 @@ export default function MemoryPage() {
   const [lessons, setLessons] = useState<any[]>([]);
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [stats, setStats] = useState({ m1: 0, m3: 0, m4: 0, m6: 0 });
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const loadLayer = async (l: string) => {
     setLayer(l);
@@ -74,10 +75,12 @@ export default function MemoryPage() {
   };
 
   useEffect(() => {
-    loadLessons();
-    loadChatHistory();
-    loadStats();
+    Promise.all([loadLessons(), loadChatHistory(), loadStats()]).finally(() => setDataLoaded(true));
   }, []);
+
+  if (!dataLoaded) {
+    return <PageLoader variant="grid" title="Loading AI memory..." />;
+  }
 
   return (
     <div className="space-y-xl">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
-import { PageHeader, SectionCard, StatusPill, EmptyState, ErrorState } from "@/components/design-system";
+import { PageHeader, SectionCard, StatusPill, EmptyState, ErrorState, PageLoader } from "@/components/design-system";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -176,6 +176,10 @@ export default function ContainersPage() {
     if (state === "exited" || state === "dead") return "critical";
     return "warning";
   };
+
+  if (loading) {
+    return <PageLoader variant="list" title="Loading containers..." />;
+  }
 
   return (
     <div className="space-y-xl">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { api } from "@/lib/api";
-import { PageHeader, SectionCard, StatusPill, EmptyState, ErrorState } from "@/components/design-system";
+import { PageHeader, SectionCard, StatusPill, EmptyState, ErrorState, PageLoader } from "@/components/design-system";
 import { Badge } from "@/components/ui/badge";
 import {
   Network,
@@ -192,6 +192,10 @@ export default function TopologyPage() {
 
   const runningCount = topology.summary.runningContainers;
   const stoppedCount = topology.summary.stoppedContainers;
+
+  if (loading) {
+    return <PageLoader variant="detail" title="Loading topology..." />;
+  }
 
   return (
     <div className="space-y-xl">

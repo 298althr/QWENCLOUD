@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api, API_BASE } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader, SectionCard, StatusPill } from "@/components/design-system";
+import { PageHeader, SectionCard, StatusPill, PageLoader } from "@/components/design-system";
 import { SecretText } from "@/components/SecretField";
 import { Rocket, Loader2, CheckCircle2, AlertCircle, Layers, Power, RotateCcw, Trash2, FileText, ExternalLink, Boxes, Eye, EyeOff, Bug, Webhook, Shield } from "lucide-react";
 import { toast } from "sonner";
@@ -61,6 +61,7 @@ export default function DeploymentsPage() {
   const [error, setError] = useState("");
   const [apps, setApps] = useState<DeployedApp[]>([]);
   const [appsLoading, setAppsLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [logsFor, setLogsFor] = useState<string | null>(null);
   const [logs, setLogs] = useState("");
@@ -91,7 +92,7 @@ export default function DeploymentsPage() {
     try {
       const r = await api.listDeployedApps();
       setApps(r.apps || []);
-    } catch { /* ignore */ } finally { setAppsLoading(false); }
+    } catch { /* ignore */ } finally { setAppsLoading(false); setDataLoaded(true); }
   }, []);
 
   const loadHistory = useCallback(async () => {
@@ -275,6 +276,10 @@ export default function DeploymentsPage() {
   };
 
   const webhookUrl = `${API_BASE.replace("/api", "")}/api/deployments/webhook`;
+
+  if (!dataLoaded) {
+    return <PageLoader variant="list" title="Loading deployments..." />;
+  }
 
   return (
     <div className="space-y-xl">

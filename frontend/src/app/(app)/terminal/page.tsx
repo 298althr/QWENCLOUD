@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader, SectionCard } from "@/components/design-system";
+import { PageHeader, SectionCard, PageLoader } from "@/components/design-system";
 import { Lightbulb, Send, Terminal as TerminalIcon, Loader2, AlertCircle, Trash2, History, Clock, CheckCircle, XCircle, FlaskConical } from "lucide-react";
 import { onTerminalLog, type TerminalLogEntry } from "@/lib/websocket";
 import { toast } from "sonner";
@@ -189,6 +189,10 @@ export default function TerminalPage() {
   const successCount = history.filter((e) => e.exitCode === 0).length;
   const failCount = history.filter((e) => e.exitCode !== null && e.exitCode !== 0).length;
   const aiCount = history.filter((e) => e.source === "ai").length;
+
+  if (!loaded) {
+    return <PageLoader variant="terminal" title="Loading terminal..." />;
+  }
 
   return (
     <div className="space-y-xl">
