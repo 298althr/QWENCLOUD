@@ -22,13 +22,16 @@ const dockerUtil = require("../utils/docker");
 function runShell(command, timeoutMs = 10000) {
   return new Promise((resolve) => {
     const t0 = Date.now();
-    exec(command, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    exec(command, { timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
       const time_ms = Date.now() - t0;
       if (err) {
+        const suffix = err.killed
+          ? (time_ms >= timeoutMs ? " [timeout]" : " [killed]")
+          : (err.message?.includes("maxBuffer") ? " [maxBuffer exceeded]" : "");
         resolve({
           exit_code: err.code ?? 1,
           stdout: stdout?.toString() ?? "",
-          stderr: (stderr?.toString() ?? "") + (err.killed ? " [timeout]" : ""),
+          stderr: (stderr?.toString() ?? "") + suffix,
           time_ms,
         });
       } else {

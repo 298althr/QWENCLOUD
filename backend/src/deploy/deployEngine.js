@@ -175,6 +175,17 @@ function findWebRoot(repoPath, fileMap) {
       if (hasHtml) return dirPath;
     }
   }
+  // Check for monorepo frontend directory (e.g. frontend/ with package.json)
+  const frontendDir = path.join(repoPath, "frontend");
+  if (fs.existsSync(frontendDir) && fs.statSync(frontendDir).isDirectory()) {
+    const pkgPath = path.join(frontendDir, "package.json");
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+        if (pkg.dependencies?.next || pkg.devDependencies?.next) return frontendDir;
+      } catch {}
+    }
+  }
   // If any index.html is deeper than root, use its parent
   for (const [name, filePath] of fileMap) {
     if (name === "index.html" && filePath !== repoPath) return filePath;
@@ -302,7 +313,7 @@ async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
     path: webRoot,
     dockerfile: dockerfileContent,
     tag,
-    timeout: 180000,
+    timeout: 600000,
   });
   if (buildResult.exit_code !== 0) {
     return { success: false, stage: "build", error: buildResult.stderr || buildResult.stdout, findings, cloneDir };
