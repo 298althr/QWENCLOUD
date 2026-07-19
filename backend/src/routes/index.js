@@ -157,4 +157,7 @@ router.use("/incidents", require("./incidents"));
 // Root Cause Analysis
 router.use("/rca", require("./rca"));
 
+// Authentication
+router.use("/auth", require("./auth"));
+
 module.exports = router;

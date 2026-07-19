@@ -24,12 +24,17 @@ function notifyStatus(status: ConnectionStatus) {
 
 export function getSocket(): Socket {
   if (!socket) {
+    const apiKey = typeof window !== "undefined"
+      ? localStorage.getItem("althr_api_key") || undefined
+      : undefined;
+
     socket = io(WS_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
       reconnectionDelay: BASE_DELAY,
       reconnectionDelayMax: 10000,
+      auth: { token: apiKey },
     });
 
     socket.on("connect", () => {

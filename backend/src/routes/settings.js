@@ -7,6 +7,7 @@ const router = express.Router();
 const tokenTracker = require("../qwen/tokenTracker");
 const guardrails = require("../qwen/guardrails");
 const sandbox = require("../utils/sandbox");
+const { validate, schemas } = require("../middleware/validate");
 
 // Default settings (env-driven in production)
 const defaultSettings = {
@@ -70,16 +71,14 @@ router.get("/kill-switch", (req, res) => {
 });
 
 // POST /api/settings/kill-switch — trip or reset the kill switch
-router.post("/kill-switch", (req, res) => {
-  const { action, reason } = req.body || {};
+router.post("/kill-switch", validate({ body: schemas.killSwitch }), (req, res) => {
+  const { action, reason } = req.body;
   if (action === "trip") {
     tokenTracker.tripKillSwitch(reason || "Manual trip via API");
     res.json({ saved: true, status: tokenTracker.getKillSwitchStatus() });
-  } else if (action === "reset") {
+  } else {
     tokenTracker.resetKillSwitch();
     res.json({ saved: true, status: tokenTracker.getKillSwitchStatus() });
-  } else {
-    res.status(400).json({ error: "Action must be 'trip' or 'reset'" });
   }
 });
 

@@ -6,18 +6,17 @@ const router = express.Router();
 const rcaEngine = require("../rca/rcaEngine");
 const { runAllTests, TEST_SCENARIOS } = require("../rca/calibration");
 const { collectMetrics } = require("../monitors/monitor");
+const { validate, schemas } = require("../middleware/validate");
+const { reqIp } = require("../utils/audit");
 
 /**
  * POST /api/rca/analyze
  * Body: { anomaly: { type, severity, message, data }, metrics?: {...} }
  * Runs RCA on the given anomaly and returns the causal chain.
  */
-router.post("/analyze", async (req, res) => {
+router.post("/analyze", validate({ body: schemas.rcaAnalyze }), async (req, res) => {
   try {
-    const { anomaly, metrics } = req.body || {};
-    if (!anomaly || !anomaly.type) {
-      return res.status(400).json({ error: "anomaly.type is required" });
-    }
+    const { anomaly, metrics } = req.body;
 
     const io = req.app.get("io");
     const serverMetrics = metrics || await collectMetrics().catch(() => ({ cpu: 0, ram: 0, disk: 0 }));
@@ -31,7 +30,7 @@ router.post("/analyze", async (req, res) => {
     res.json(result);
   } catch (e) {
     console.error("[rca] analyze error:", e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message, timestamp: new Date().toISOString() });
   }
 });
 

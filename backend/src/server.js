@@ -12,20 +12,43 @@ const { Server } = require("socket.io");
 const { pool } = require("./db/pool");
 const { connect: connectRedis, client: redisClient } = require("./db/redis");
 
+// ---- CORS configuration ----
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+  : "*";
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: process.env.CORS_ORIGIN || "*", methods: ["GET", "POST"] },
+  cors: { origin: corsOrigin, methods: ["GET", "POST"], credentials: true },
 });
 
 // ---- Middleware ----
-app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      fontSrc: ["'self'", "data:"],
+    },
+  },
+}));
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
-const { apiKeyAuth } = require("./middleware/auth");
+// ---- Rate limiting ----
+const { rateLimit } = require("./middleware/rateLimit");
+const apiRateLimit = rateLimit({ windowMs: 60 * 1000, max: 100, burst: 20 });
+app.use("/api", apiRateLimit);
+
+// ---- Authentication ----
+const { apiKeyAuth, sessionTimeout } = require("./middleware/auth");
 app.use("/api", apiKeyAuth);
+app.use("/api", sessionTimeout);
 
 // Make io available to route handlers
 app.set("io", io);
@@ -79,9 +102,13 @@ const { approveAction, rejectAction } = require("./pipeline/approvals");
 const { get_server_health } = require("./qwen/toolExecutor");
 const monitor = require("./monitors/monitor");
 
+// ---- WebSocket authentication ----
+const { wsAuthMiddleware } = require("./middleware/wsAuth");
+io.use(wsAuthMiddleware);
+
 io.on("connection", (socket) => {
   // eslint-disable-next-line no-console
-  console.log("[ws] client connected:", socket.id);
+  console.log("[ws] client connected:", socket.id, "user:", socket.user?.username);
   socket.on("disconnect", () => console.log("[ws] disconnected:", socket.id));
 
   // Client sends an NL agent message over WebSocket; reasoning is streamed back.
@@ -143,6 +170,11 @@ io.on("connection", (socket) => {
     }
   });
 });
+
+// ---- 404 and Error handling (must be after all routes) ----
+const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
+app.use("/api", notFoundHandler);
+app.use(errorHandler);
 
 // ---- Boot ----
 const PORT = process.env.PORT || 3000;

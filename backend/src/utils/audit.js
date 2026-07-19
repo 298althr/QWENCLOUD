@@ -28,6 +28,14 @@ async function audit({
   result,
   ipAddress = null,
 }) {
+  // Sanitize IP address for inet cast
+  let safeIp = null;
+  if (ipAddress) {
+    const cleaned = String(ipAddress).replace(/^::ffff:/, "");
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(cleaned) || /^[0-9a-f:]+$/i.test(cleaned)) {
+      safeIp = cleaned;
+    }
+  }
   const res = await query(
     `INSERT INTO audit_log
        (operation, actor, target, target_type, reasoning, confidence, saf_result, result, ip_address)
@@ -48,10 +56,12 @@ async function audit({
   return res.rows[0];
 }
 
-async function queryAudit({ type, limit = 50, from, to } = {}) {
+async function queryAudit({ type, operation, limit = 50, from, to, target_type } = {}) {
   const conditions = [];
   const params = [];
   if (type) { params.push(type); conditions.push(`operation = $${params.length}`); }
+  if (operation) { params.push(operation); conditions.push(`operation = $${params.length}`); }
+  if (target_type) { params.push(target_type); conditions.push(`target_type = $${params.length}`); }
   if (from) { params.push(from); conditions.push(`timestamp >= $${params.length}`); }
   if (to) { params.push(to); conditions.push(`timestamp <= $${params.length}`); }
   params.push(limit);
@@ -63,4 +73,11 @@ async function queryAudit({ type, limit = 50, from, to } = {}) {
   return res.rows;
 }
 
-module.exports = { audit, queryAudit };
+function reqIp(req) {
+  if (!req) return null;
+  const fwd = req.headers?.["x-forwarded-for"];
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.ip || req.socket?.remoteAddress || null;
+}
+
+module.exports = { audit, queryAudit, reqIp };

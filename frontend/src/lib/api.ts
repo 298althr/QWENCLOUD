@@ -5,9 +5,21 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000/api"
 export { API_BASE };
 
 async function fetchAPI<T = any>(path: string, options?: RequestInit): Promise<T> {
+  const apiKey = typeof window !== "undefined"
+    ? localStorage.getItem("althr_api_key") || undefined
+    : undefined;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...options?.headers as Record<string, string>,
+  };
+  if (apiKey) {
+    headers["x-api-key"] = apiKey;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers,
     cache: "no-store",
   });
   if (!res.ok) {

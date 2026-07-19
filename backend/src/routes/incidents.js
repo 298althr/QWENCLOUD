@@ -4,13 +4,15 @@
 const express = require("express");
 const router = express.Router();
 const { listActiveIncidents, escalateIncident, resolveIncident } = require("../monitors/incidentResponse");
-const { queryAudit } = require("../utils/audit");
+const { queryAudit, reqIp } = require("../utils/audit");
+const { z } = require("zod");
+const { validate, schemas } = require("../middleware/validate");
 
 router.get("/active", (req, res) => {
   res.json({ incidents: listActiveIncidents(), timestamp: new Date().toISOString() });
 });
 
-router.post("/:incidentId/escalate", async (req, res) => {
+router.post("/:incidentId/escalate", validate({ params: z.object({ incidentId: z.string().min(1).max(100) }), body: schemas.incidentEscalate }), async (req, res) => {
   try {
     const { incidentId } = req.params;
     const { reason = "manual escalation from dashboard" } = req.body || {};
@@ -22,7 +24,7 @@ router.post("/:incidentId/escalate", async (req, res) => {
   }
 });
 
-router.post("/:incidentId/resolve", async (req, res) => {
+router.post("/:incidentId/resolve", validate({ params: z.object({ incidentId: z.string().min(1).max(100) }), body: schemas.incidentResolve }), async (req, res) => {
   try {
     const { incidentId } = req.params;
     const io = req.app.get("io");
@@ -38,7 +40,7 @@ router.get("/history", async (req, res) => {
     const rows = await queryAudit({ operation: "escalate", target_type: "incident", limit: 50 });
     res.json({ incidents: rows, timestamp: new Date().toISOString() });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message, timestamp: new Date().toISOString() });
   }
 });
 
