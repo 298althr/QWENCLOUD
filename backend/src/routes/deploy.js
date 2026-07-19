@@ -34,24 +34,28 @@ router.post("/", async (req, res) => {
   try {
     const result = await deployFromRepo({ repo_url, requestedPort: port, env_vars });
 
-    await audit({
-      operation: "execute",
-      actor: "api",
-      target: repo_url,
-      target_type: "deployment",
-      reasoning: result.success
-        ? `Deployed ${result.stack} app on port ${result.hostPort} at ${result.appUrl}`
-        : `Deployment failed at ${result.stage}: ${result.error}`,
-      safResult: saf,
-      result: result.success ? "success" : "failure",
-    });
+    try {
+      await audit({
+        operation: "execute",
+        actor: "api",
+        target: repo_url,
+        target_type: "deployment",
+        reasoning: result.success
+          ? `Deployed ${result.stack} app on port ${result.hostPort} at ${result.appUrl}`
+          : `Deployment failed at ${result.stage}: ${result.error}`,
+        safResult: saf,
+        result: result.success ? "success" : "failure",
+      });
+    } catch (auditErr) {
+      console.error("[deploy] audit log failed (non-fatal):", auditErr.message);
+    }
 
     if (!result.success) {
       return res.status(500).json(result);
     }
     res.json(result);
   } catch (e) {
-    await audit({ operation: "execute", actor: "api", target: repo_url, target_type: "deployment", reasoning: `Deployment error: ${e.message}`, safResult: saf, result: "failure" });
+    try { await audit({ operation: "execute", actor: "api", target: repo_url, target_type: "deployment", reasoning: `Deployment error: ${e.message}`, safResult: saf, result: "failure" }); } catch {}
     res.status(500).json({ success: false, stage: "exception", error: e.message });
   }
 });
