@@ -332,7 +332,7 @@ CREATE TABLE IF NOT EXISTS monitor_metrics_history (
     network_rx_errors INTEGER,
     network_tx_errors INTEGER,
     latency_ms      DECIMAL(8,2),
-    uptime_seconds  BIGINT,
+    uptime_seconds  DECIMAL(12,2),
     tick_count      INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_metrics_history_ts ON monitor_metrics_history(timestamp DESC);
