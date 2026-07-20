@@ -11,7 +11,14 @@ node_modules/
 *.key
 
 # Build output
-.next/
+.next/cache
+.next/server
+.next/types
+.next/BUILD_ID
+.next/export
+.next/prerender-manifest.json
+.next/routes-manifest.json
+.next/.env
 out/
 dist/
 build/
