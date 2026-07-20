@@ -76,11 +76,11 @@ app.get("/api/human/challenge", (req, res) => {
   res.json(issueChallenge());
 });
 app.post("/api/human/verify", (req, res) => {
-  const { challenge, nonce } = req.body || {};
+  const { challenge, nonce, gestureData } = req.body || {};
   if (!challenge || nonce === undefined) {
     return res.status(400).json({ error: "Missing challenge or nonce" });
   }
-  const result = verifySolution(challenge, String(nonce));
+  const result = verifySolution(challenge, String(nonce), gestureData);
   if (!result.valid) {
     return res.status(403).json({ error: "Verification failed", reason: result.reason });
   }

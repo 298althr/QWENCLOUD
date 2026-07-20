@@ -1,25 +1,32 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Loader2, CheckCircle2, AlertCircle, Fingerprint, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Fingerprint, RefreshCw, ArrowRight, ShieldCheck } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000/api";
 
-type Status = "idle" | "clicked" | "fetching" | "computing" | "verifying" | "done" | "error";
+type Status = "idle" | "fetching" | "computing" | "verifying" | "done" | "error" | "loading";
 
 export default function VerifyPage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [attempts, setAttempts] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
   const [isBot, setIsBot] = useState(false);
+  const [slideProgress, setSlideProgress] = useState(0);
+  const [slideComplete, setSlideComplete] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
+  // Slide gesture refs
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartTime = useRef(0);
+  const gesturePoints = useRef<{ x: number; y: number; t: number }[]>([]);
+  const maxDragX = useRef(0);
+
+  // Bot detection
   useEffect(() => {
-    // Bot detection: check for Playwright, Puppeteer, Selenium, and other automation signatures
     const w = window as any;
     const nav = navigator as any;
     const botSignals = [
@@ -33,32 +40,61 @@ export default function VerifyPage() {
       w.__webdriver_script_function,
       w.__driver_script_function,
       nav.languages === undefined,
-      // Playwright sets a specific user agent
       /HeadlessChrome/.test(nav.userAgent),
       /playwright/i.test(nav.userAgent),
     ];
-    const detected = botSignals.some(Boolean);
-    if (detected) {
+    if (botSignals.some(Boolean)) {
       setIsBot(true);
-      return;
-    }
-    // Check for missing typical browser features that headless browsers lack
-    if (typeof w.chrome === "undefined" && !nav.userAgent.includes("Firefox")) {
-      // Chrome should have window.chrome — headless might not
-      // But don't block — just flag
     }
   }, []);
 
-  useEffect(() => {
-    // If a valid token exists, redirect to dashboard.
-    // But don't auto-redirect — let the user click to verify or go to dashboard manually.
-    // This prevents a loop where stale tokens block re-verification.
+  // Slide gesture handlers
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (slideComplete || status !== "idle") return;
+    e.preventDefault();
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartTime.current = Date.now();
+    gesturePoints.current = [{ x: e.clientX, y: e.clientY, t: Date.now() }];
+    maxDragX.current = 0;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [slideComplete, status]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    e.preventDefault();
+
+    const track = trackRef.current;
+    if (!track) return;
+    const trackWidth = track.offsetWidth;
+    const handleWidth = 56;
+    const maxOffset = trackWidth - handleWidth;
+
+    const delta = e.clientX - dragStartX.current;
+    const clamped = Math.max(0, Math.min(delta, maxOffset));
+    setSlideProgress((clamped / maxOffset) * 100);
+    maxDragX.current = clamped;
+
+    gesturePoints.current.push({ x: e.clientX, y: e.clientY, t: Date.now() });
+
+    if (clamped >= maxOffset * 0.95) {
+      isDragging.current = false;
+      setSlideComplete(true);
+      setSlideProgress(100);
+      gesturePoints.current.push({ x: e.clientX, y: e.clientY, t: Date.now() });
+      startVerification();
+    }
   }, []);
 
-  function handleClick() {
-    if (status === "computing" || status === "fetching" || status === "verifying") return;
-    startVerification();
-  }
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    if (!slideComplete) {
+      setSlideProgress(0);
+      gesturePoints.current = [];
+    }
+  }, [slideComplete]);
 
   async function startVerification() {
     try {
@@ -70,14 +106,8 @@ export default function VerifyPage() {
       const { challenge, difficulty } = await res.json();
 
       setStatus("computing");
-      setProgress(0);
-      setAttempts(0);
-      setElapsed(0);
 
-      // Synchronous SHA-256 implementation for Web Worker
-      // (crypto.subtle is async and unavailable in some Blob URL worker contexts)
       const workerCode = `
-// Minimal synchronous SHA-256 implementation
 var K = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
   0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -88,90 +118,42 @@ var K = [
   0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ];
-
 function rotr(x, n) { return ((x >>> n) | (x << (32 - n))) >>> 0; }
-
 function sha256Bytes(msg) {
   var H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
-  var len = msg.length;
-  var bitLen = len * 8;
+  var len = msg.length; var bitLen = len * 8;
   var paddedLen = (((len + 9 + 63) >> 6) << 6);
-  var data = new Uint8Array(paddedLen);
-  data.set(msg);
-  data[len] = 0x80;
-  // Append length as 64-bit big-endian
-  data[paddedLen - 4] = (bitLen >>> 24) & 0xff;
-  data[paddedLen - 3] = (bitLen >>> 16) & 0xff;
-  data[paddedLen - 2] = (bitLen >>> 8) & 0xff;
-  data[paddedLen - 1] = bitLen & 0xff;
-
+  var data = new Uint8Array(paddedLen); data.set(msg); data[len] = 0x80;
+  data[paddedLen - 4] = (bitLen >>> 24) & 0xff; data[paddedLen - 3] = (bitLen >>> 16) & 0xff;
+  data[paddedLen - 2] = (bitLen >>> 8) & 0xff; data[paddedLen - 1] = bitLen & 0xff;
   var W = new Array(64);
   for (var i = 0; i < paddedLen; i += 64) {
-    for (var t = 0; t < 16; t++) {
-      W[t] = ((data[i + t*4] << 24) | (data[i + t*4 + 1] << 16) | (data[i + t*4 + 2] << 8) | data[i + t*4 + 3]) >>> 0;
-    }
-    for (var t = 16; t < 64; t++) {
-      var s0 = rotr(W[t-15], 7) ^ rotr(W[t-15], 18) ^ (W[t-15] >>> 3);
-      var s1 = rotr(W[t-2], 17) ^ rotr(W[t-2], 19) ^ (W[t-2] >>> 10);
-      W[t] = (W[t-16] + s0 + W[t-7] + s1) >>> 0;
-    }
+    for (var t = 0; t < 16; t++) { W[t] = ((data[i + t*4] << 24) | (data[i + t*4 + 1] << 16) | (data[i + t*4 + 2] << 8) | data[i + t*4 + 3]) >>> 0; }
+    for (var t = 16; t < 64; t++) { var s0 = rotr(W[t-15], 7) ^ rotr(W[t-15], 18) ^ (W[t-15] >>> 3); var s1 = rotr(W[t-2], 17) ^ rotr(W[t-2], 19) ^ (W[t-2] >>> 10); W[t] = (W[t-16] + s0 + W[t-7] + s1) >>> 0; }
     var a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
-    for (var t = 0; t < 64; t++) {
-      var S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
-      var ch = (e & f) ^ (~e & g);
-      var temp1 = (h + S1 + ch + K[t] + W[t]) >>> 0;
-      var S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
-      var maj = (a & b) ^ (a & c) ^ (b & c);
-      var temp2 = (S0 + maj) >>> 0;
-      h=g; g=f; f=e; e=(d+temp1)>>>0; d=c; c=b; b=a; a=(temp1+temp2)>>>0;
-    }
-    H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;
-    H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;
+    for (var t = 0; t < 64; t++) { var S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25); var ch = (e & f) ^ (~e & g); var temp1 = (h + S1 + ch + K[t] + W[t]) >>> 0; var S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22); var maj = (a & b) ^ (a & c) ^ (b & c); var temp2 = (S0 + maj) >>> 0; h=g; g=f; f=e; e=(d+temp1)>>>0; d=c; c=b; b=a; a=(temp1+temp2)>>>0; }
+    H[0]=(H[0]+a)>>>0;H[1]=(H[1]+b)>>>0;H[2]=(H[2]+c)>>>0;H[3]=(H[3]+d)>>>0;H[4]=(H[4]+e)>>>0;H[5]=(H[5]+f)>>>0;H[6]=(H[6]+g)>>>0;H[7]=(H[7]+h)>>>0;
   }
   var out = new Uint8Array(32);
-  for (var i = 0; i < 8; i++) {
-    out[i*4] = (H[i] >>> 24) & 0xff;
-    out[i*4+1] = (H[i] >>> 16) & 0xff;
-    out[i*4+2] = (H[i] >>> 8) & 0xff;
-    out[i*4+3] = H[i] & 0xff;
-  }
+  for (var i = 0; i < 8; i++) { out[i*4] = (H[i] >>> 24) & 0xff; out[i*4+1] = (H[i] >>> 16) & 0xff; out[i*4+2] = (H[i] >>> 8) & 0xff; out[i*4+3] = H[i] & 0xff; }
   return out;
 }
-
 function strToBytes(s) {
   var arr = [];
-  for (var i = 0; i < s.length; i++) {
-    var c = s.charCodeAt(i);
-    if (c < 0x80) arr.push(c);
-    else if (c < 0x800) { arr.push(0xc0 | (c >> 6)); arr.push(0x80 | (c & 0x3f)); }
-    else { arr.push(0xe0 | (c >> 12)); arr.push(0x80 | ((c >> 6) & 0x3f)); arr.push(0x80 | (c & 0x3f)); }
-  }
+  for (var i = 0; i < s.length; i++) { var c = s.charCodeAt(i); if (c < 0x80) arr.push(c); else if (c < 0x800) { arr.push(0xc0 | (c >> 6)); arr.push(0x80 | (c & 0x3f)); } else { arr.push(0xe0 | (c >> 12)); arr.push(0x80 | ((c >> 6) & 0x3f)); arr.push(0x80 | (c & 0x3f)); } }
   return new Uint8Array(arr);
 }
-
 self.onmessage = function(e) {
-  var challenge = e.data.challenge;
-  var difficulty = e.data.difficulty;
-  var nonce = 0;
-  var startTime = Date.now();
-  var batchSize = 2000;
-
+  var challenge = e.data.challenge; var difficulty = e.data.difficulty;
+  var nonce = 0; var startTime = Date.now(); var batchSize = 2000;
   function computeBatch() {
     for (var i = 0; i < batchSize; i++) {
-      var data = strToBytes(challenge + ":" + nonce);
-      var hash = sha256Bytes(data);
-      var valid = true;
-      for (var j = 0; j < difficulty; j++) {
-        if (hash[j] !== 0) { valid = false; break; }
-      }
-      if (valid) {
-        self.postMessage({ found: true, nonce: nonce, attempts: nonce, elapsed: Date.now() - startTime });
-        return;
-      }
+      var data = strToBytes(challenge + ":" + nonce); var hash = sha256Bytes(data); var valid = true;
+      for (var j = 0; j < difficulty; j++) { if (hash[j] !== 0) { valid = false; break; } }
+      if (valid) { self.postMessage({ found: true, nonce: nonce }); return; }
       nonce++;
     }
-    self.postMessage({ found: false, attempts: nonce, elapsed: Date.now() - startTime });
-    setTimeout(computeBatch, 0);
+    self.postMessage({ found: false }); setTimeout(computeBatch, 0);
   }
   computeBatch();
 };
@@ -183,16 +165,20 @@ self.onmessage = function(e) {
 
       worker.onmessage = async (e) => {
         if (e.data.found) {
-          setAttempts(e.data.attempts);
-          setElapsed(e.data.elapsed);
           setStatus("verifying");
           worker.terminate();
+
+          const gestureData = {
+            startTime: dragStartTime.current,
+            endTime: Date.now(),
+            points: gesturePoints.current,
+          };
 
           try {
             const verifyRes = await fetch(`${API_BASE}/human/verify`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ challenge, nonce: String(e.data.nonce) }),
+              body: JSON.stringify({ challenge, nonce: String(e.data.nonce), gestureData }),
             });
 
             if (!verifyRes.ok) {
@@ -206,16 +192,18 @@ self.onmessage = function(e) {
             setStatus("done");
 
             setTimeout(() => {
+              setStatus("loading");
+            }, 800);
+
+            setTimeout(() => {
               router.push("/dashboard");
-            }, 1500);
+            }, 2500);
           } catch (err: any) {
             setStatus("error");
             setError(err.message);
+            setSlideComplete(false);
+            setSlideProgress(0);
           }
-        } else {
-          setAttempts(e.data.attempts);
-          setElapsed(e.data.elapsed);
-          setProgress(Math.min((e.data.attempts / 100000) * 100, 95));
         }
       };
 
@@ -223,6 +211,8 @@ self.onmessage = function(e) {
     } catch (err: any) {
       setStatus("error");
       setError(err.message);
+      setSlideComplete(false);
+      setSlideProgress(0);
     }
   }
 
@@ -244,7 +234,7 @@ self.onmessage = function(e) {
                 Human Access Only
               </h1>
               <p className="text-sm text-white/50 text-center mb-4">
-                This site is protected by proof-of-work human verification.
+                This site is protected by human verification.
                 Automated browsers, bots, and testing frameworks (Playwright, Puppeteer, Selenium) are not allowed.
               </p>
               <p className="text-xs text-white/30 text-center">
@@ -257,12 +247,34 @@ self.onmessage = function(e) {
     );
   }
 
+  // Loading screen before dashboard
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full border-2 border-white/10" />
+            <div className="absolute inset-0 w-20 h-20 rounded-full border-2 border-transparent border-t-blue-400 border-r-blue-400 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="text-white/70 text-sm font-medium">Loading your dashboard</p>
+            <p className="text-white/30 text-xs mt-1">Preparing your workspace...</p>
+          </div>
+          <div className="w-48 h-1 rounded-full bg-white/5 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 animate-pulse" style={{ width: "100%" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Card */}
         <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-white/5 backdrop-blur-xl p-8 md:p-10">
-          {/* Glow */}
           <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-blue-500/10 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
@@ -287,50 +299,64 @@ self.onmessage = function(e) {
               Human Verification
             </h1>
             <p className="text-sm text-white/50 text-center mb-6">
-              {status === "idle" && "Click the checkbox below to verify you are human"}
+              {status === "idle" && "Slide to verify you are human"}
               {status === "fetching" && "Loading challenge..."}
-              {status === "computing" && "Solving puzzle... this takes a few seconds"}
-              {status === "verifying" && "Verifying solution..."}
-              {status === "done" && "Verified! Redirecting to dashboard..."}
+              {status === "computing" && "Verifying..."}
+              {status === "verifying" && "Confirming..."}
+              {status === "done" && "Verified! Redirecting..."}
               {status === "error" && "Verification failed"}
             </p>
 
-            {/* CAPTCHA checkbox - the "I'm not a robot" box */}
+            {/* Slide-to-verify track */}
             {status === "idle" && (
-              <div className="space-y-4">
-                <button
-                  onClick={handleClick}
-                  className="w-full rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/25 px-6 py-5 flex items-center gap-4 transition-all group"
-                >
-                  <div className="w-7 h-7 rounded-md border-2 border-white/20 group-hover:border-blue-400 flex items-center justify-center transition-colors">
-                    <Fingerprint className="w-4 h-4 text-white/30 group-hover:text-blue-400 transition-colors" />
-                  </div>
-                  <span className="text-white/70 text-sm font-medium text-left">
-                    I&apos;m not a robot
+              <div
+                ref={trackRef}
+                className="relative w-full h-14 rounded-2xl bg-white/5 border border-white/10 overflow-hidden select-none"
+              >
+                {/* Track label */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-sm text-white/30 font-medium">
+                    {slideComplete ? "" : "Slide to verify"}
                   </span>
-                  <div className="ml-auto flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-white/20" />
-                    <span className="text-[10px] text-white/20">PoW</span>
-                  </div>
-                </button>
-                <p className="text-xs text-white/30 text-center">
-                  Clicking will run a proof-of-work challenge in your browser
-                </p>
+                </div>
+
+                {/* Progress fill */}
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500/20 to-emerald-500/20 transition-all duration-75"
+                  style={{ width: `${slideProgress}%` }}
+                />
+
+                {/* Draggable handle */}
+                <div
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                  className={`absolute top-1 left-1 w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none transition-transform ${
+                    slideComplete ? "scale-90" : ""
+                  }`}
+                  style={{
+                    transform: `translateX(${slideProgress * ((trackRef.current?.offsetWidth || 300) - 56) / 100}px)`,
+                    transition: isDragging.current ? "none" : "transform 0.2s ease-out",
+                  }}
+                >
+                  {slideComplete ? (
+                    <CheckCircle2 className="w-6 h-6 text-white" />
+                  ) : (
+                    <ArrowRight className="w-6 h-6 text-white" />
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Progress bar during computation */}
-            {(status === "computing" || status === "verifying") && (
+            {/* Working state */}
+            {isWorking && (
               <div className="space-y-3">
                 <div className="h-2 rounded-full bg-white/5 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-300"
-                    style={{ width: `${status === "verifying" ? 100 : progress}%` }}
+                    style={{ width: status === "verifying" ? "100%" : "60%" }}
                   />
-                </div>
-                <div className="flex justify-between text-xs text-white/30">
-                  <span>{attempts.toLocaleString()} hashes</span>
-                  <span>{elapsed > 0 ? `${(elapsed / 1000).toFixed(1)}s` : ""}</span>
                 </div>
               </div>
             )}
@@ -341,7 +367,7 @@ self.onmessage = function(e) {
                 <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-center">
                   <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
                   <p className="text-sm text-emerald-300">
-                    Verification successful — {attempts.toLocaleString()} hashes in {(elapsed / 1000).toFixed(1)}s
+                    Verification successful
                   </p>
                 </div>
               </div>
@@ -354,7 +380,13 @@ self.onmessage = function(e) {
                   <p className="text-sm text-red-300">{error}</p>
                 </div>
                 <button
-                  onClick={() => { setStatus("idle"); setError(""); }}
+                  onClick={() => {
+                    setStatus("idle");
+                    setError("");
+                    setSlideComplete(false);
+                    setSlideProgress(0);
+                    gesturePoints.current = [];
+                  }}
                   className="w-full rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium py-3 transition-colors flex items-center justify-center gap-2"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -362,19 +394,11 @@ self.onmessage = function(e) {
                 </button>
               </div>
             )}
-
-            {/* Footer info */}
-            {status !== "error" && (
-              <div className="mt-6 flex items-center gap-2 justify-center">
-                <ShieldCheck className="w-3.5 h-3.5 text-white/20" />
-                <span className="text-xs text-white/20">Proof-of-Work Anti-Bot Protection</span>
-              </div>
-            )}
           </div>
         </div>
 
         <p className="text-center text-xs text-white/20 mt-6">
-          ALTHR Autopilot — Human Verification Layer
+          ALTHR Autopilot
         </p>
       </div>
     </div>
