@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, AlertCircle, Fingerprint, RefreshCw, ArrowRight, ShieldCheck } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000/api";
 
-type Status = "idle" | "fetching" | "computing" | "verifying" | "done" | "error" | "loading";
+type Status = "idle" | "fetching" | "computing" | "verifying" | "done" | "error";
 
 export default function VerifyPage() {
-  const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const [isBot, setIsBot] = useState(false);
@@ -192,12 +190,8 @@ self.onmessage = function(e) {
             setStatus("done");
 
             setTimeout(() => {
-              setStatus("loading");
-            }, 800);
-
-            setTimeout(() => {
-              router.push("/");
-            }, 2500);
+              window.location.href = "/dashboard";
+            }, 1000);
           } catch (err: any) {
             setStatus("error");
             setError(err.message);
@@ -241,30 +235,6 @@ self.onmessage = function(e) {
                 If you are a human, please open this page in a standard web browser.
               </p>
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Loading screen before dashboard
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-6">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full border-2 border-white/10" />
-            <div className="absolute inset-0 w-20 h-20 rounded-full border-2 border-transparent border-t-blue-400 border-r-blue-400 animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-            </div>
-          </div>
-          <div className="text-center">
-            <p className="text-white/70 text-sm font-medium">Loading your dashboard</p>
-            <p className="text-white/30 text-xs mt-1">Preparing your workspace...</p>
-          </div>
-          <div className="w-48 h-1 rounded-full bg-white/5 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 animate-pulse" style={{ width: "100%" }} />
           </div>
         </div>
       </div>
