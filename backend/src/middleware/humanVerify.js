@@ -15,18 +15,14 @@ const CHALLENGE_TTL_MS = 5 * 60 * 1000; // 5 min to solve
 
 const SECRET = process.env.JWT_SECRET || process.env.ALTHR_API_KEY || "althr-pow-fallback";
 
-// In-memory store for issued challenges and valid tokens
+// In-memory store for issued challenges (tokens are stateless — verified by signature)
 const challenges = new Map();
-const validTokens = new Map();
 
-// Periodic cleanup
+// Periodic cleanup for challenges only
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of challenges) {
     if (now - val.issued > CHALLENGE_TTL_MS) challenges.delete(key);
-  }
-  for (const [key, val] of validTokens) {
-    if (now > val.expires) validTokens.delete(key);
   }
 }, 60000);
 
@@ -91,26 +87,28 @@ function verifySolution(challenge, nonce) {
   const tokenSig = signPayload(tokenPayload);
   const token = `${tokenPayload}:${tokenSig}`;
 
-  validTokens.set(token, { expires: Date.now() + TOKEN_TTL_MS, challengeId });
+  // Token is stateless — no need to store in memory.
+  // isTokenValid() verifies the HMAC signature and checks expiry from the token payload itself.
 
   return { valid: true, token, expires_in: TOKEN_TTL_MS };
 }
 
 function isTokenValid(token) {
   if (!token) return false;
-  const entry = validTokens.get(token);
-  if (!entry) return false;
-  if (Date.now() > entry.expires) {
-    validTokens.delete(token);
-    return false;
-  }
 
-  // Verify signature
+  // Stateless verification: check HMAC signature + expiry from token payload
   const parts = token.split(":");
   if (parts.length !== 4) return false;
   const [challengeId, issuedStr, ttlStr, sig] = parts;
+
+  // Verify signature
   const expectedSig = signPayload(`${challengeId}:${issuedStr}:${ttlStr}`);
   if (sig !== expectedSig) return false;
+
+  // Check expiry: issued + ttl must be in the future
+  const issued = Number(issuedStr);
+  const ttl = Number(ttlStr);
+  if (Date.now() > issued + ttl) return false;
 
   return true;
 }

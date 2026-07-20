@@ -32,6 +32,7 @@ async function fetchAPI<T = any>(path: string, options?: RequestInit): Promise<T
     const err = await res.json().catch(() => ({ error: res.statusText }));
     if (err.code === "HUMAN_VERIFY_REQUIRED" && typeof window !== "undefined") {
       localStorage.removeItem("althr_human_token");
+      document.cookie = "althr_human_token=; path=/; max-age=0";
       window.location.href = "/verify";
       throw new Error("Human verification required. Redirecting...");
     }
