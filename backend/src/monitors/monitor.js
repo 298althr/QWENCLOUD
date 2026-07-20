@@ -166,10 +166,10 @@ async function collectMetrics() {
 
   let processes = [];
   let ports = [];
-  if (doHeavy) {
+  {
     const [topProcs, listenPorts] = await Promise.all([
       getTopProcesses(50),
-      getListeningPorts(),
+      doHeavy ? getListeningPorts() : Promise.resolve([]),
     ]);
     processes = topProcs;
     ports = listenPorts;
