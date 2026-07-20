@@ -45,8 +45,12 @@ docker-compose.dev.yml
 # Local runtime data, internal docs, and non-production documents
 docs/
 SOS-volumes/
-scripts/
 backend/telegram-notifications/
+
+# Scripts: keep production deploy/versioning scripts, ignore dev/test docs
+scripts/*
+!scripts/deploy-ecs.sh
+!scripts/versioning.sh
 
 # Keep only the root README.md on GitHub
 *.md
