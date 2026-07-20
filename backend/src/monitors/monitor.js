@@ -32,6 +32,7 @@ const tokenTracker = require("../qwen/tokenTracker");
 const { addTerminalLog } = require("../utils/terminalLog");
 const { buildTopology, getImpactAnalysis } = require("../utils/topology");
 const { listAllContainers, getParsedStats } = require("../utils/docker");
+const { getTopProcesses, getListeningPorts } = require("../utils/hostProcesses");
 const incidentResponse = require("./incidentResponse");
 const { query } = require("../db/pool");
 
@@ -166,12 +167,12 @@ async function collectMetrics() {
   let processes = [];
   let ports = [];
   if (doHeavy) {
-    const [procs, netConns] = await Promise.all([
-      withTimeout(si.processes(), 15000).catch(() => ({ list: [] })),
-      withTimeout(si.networkConnections(), 15000).catch(() => []),
+    const [topProcs, listenPorts] = await Promise.all([
+      getTopProcesses(50),
+      getListeningPorts(),
     ]);
-    processes = procs.list || [];
-    ports = (netConns || []).filter((c) => c.state === "LISTEN");
+    processes = topProcs;
+    ports = listenPorts;
   }
 
   // OS info (static, cache it)

@@ -9,13 +9,7 @@ const router = express.Router();
 const si = require("systeminformation");
 const { client: redisClient, connect: redisConnect } = require("../db/redis");
 const { get_server_health } = require("../qwen/toolExecutor");
-
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
-  ]);
-}
+const { getTopProcesses, getTopMemProcesses } = require("../utils/hostProcesses");
 
 async function getCachedTelemetry(key, fallback) {
   try {
@@ -53,22 +47,18 @@ router.get("/cpu", async (req, res) => {
     const data = await getCachedTelemetry("cpu", async () => {
       const [load, procs] = await Promise.all([
         si.currentLoad(),
-        withTimeout(si.processes(), 15000).catch(() => ({ list: [] })),
+        getTopProcesses(10),
       ]);
-      const top = (procs.list || [])
-        .sort((a, b) => (b.cpu || 0) - (a.cpu || 0))
-        .slice(0, 10)
-        .map((p) => ({
+      return {
+        cpu_overall: Number(load.currentLoad.toFixed(2)),
+        cpu_cores: load.cpus ? load.cpus.map((c) => Number((c.load || 0).toFixed(2))) : [],
+        top_processes: procs.map((p) => ({
           pid: p.pid,
           name: p.name,
           cpu: Number((p.cpu || 0).toFixed(2)),
           mem: Number((p.mem || 0).toFixed(2)),
           command: p.command || p.name,
-        }));
-      return {
-        cpu_overall: Number(load.currentLoad.toFixed(2)),
-        cpu_cores: load.cpus ? load.cpus.map((c) => Number((c.load || 0).toFixed(2))) : [],
-        top_processes: top,
+        })),
       };
     });
     res.json(data);
@@ -82,21 +72,18 @@ router.get("/ram", async (req, res) => {
     const data = await getCachedTelemetry("ram", async () => {
       const [mem, procs] = await Promise.all([
         si.mem(),
-        withTimeout(si.processes(), 15000).catch(() => ({ list: [] })),
+        getTopMemProcesses(20),
       ]);
       const used = mem.total - (mem.available || mem.free);
       const buffCache = mem.used - used;
-      const top = (procs.list || [])
-        .sort((a, b) => (b.mem || 0) - (a.mem || 0))
-        .slice(0, 20)
-        .map((p) => ({
-          pid: p.pid,
-          name: p.name,
-          mem_percent: Number((p.mem || 0).toFixed(2)),
-          mem_mb: Math.round(((p.mem || 0) / 100) * (mem.total / 1024 / 1024)),
-          cpu: Number((p.cpu || 0).toFixed(2)),
-          command: p.command || p.name,
-        }));
+      const top = procs.map((p) => ({
+        pid: p.pid,
+        name: p.name,
+        mem_percent: Number((p.mem || 0).toFixed(2)),
+        mem_mb: Math.round(((p.mem || 0) / 100) * (mem.total / 1024 / 1024)),
+        cpu: Number((p.cpu || 0).toFixed(2)),
+        command: p.command || p.name,
+      }));
       return {
         total_mb: Math.round(mem.total / 1024 / 1024),
         used_mb: Math.round(used / 1024 / 1024),
