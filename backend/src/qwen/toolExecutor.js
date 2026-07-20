@@ -115,11 +115,13 @@ async function docker_build({ path: buildPath, dockerfile, tag, timeout = 120000
   return { tag, cwd, ...res };
 }
 
-async function docker_run({ image, ports, env_vars = [], name, timeout = 60000 }) {
+async function docker_run({ image, ports, env_vars = [], name, timeout = 60000, memory, cpus }) {
   const envFlags = env_vars.map((e) => `-e "${e}"`).join(" ");
   const portFlags = ports || "";
   const nameFlag = name ? `--name "${name}"` : "";
-  const cmd = `docker run -d ${nameFlag} ${portFlags ? `-p "${portFlags}"` : ""} ${envFlags} ${image}`.replace(/\s+/g, " ");
+  const memoryFlag = memory ? `--memory="${memory}"` : "";
+  const cpusFlag = cpus ? `--cpus="${cpus}"` : "";
+  const cmd = `docker run -d ${nameFlag} ${portFlags ? `-p "${portFlags}"` : ""} ${memoryFlag} ${cpusFlag} ${envFlags} ${image}`.replace(/\s+/g, " ");
   const res = await runShell(cmd, timeout);
   return { image, ports, name, ...res };
 }

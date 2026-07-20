@@ -19,6 +19,7 @@ const { qwen, selectModel } = require("../qwen/client");
 const { guardedCreate, guardedStream, getThinkingBudget } = require("../qwen/guardrails");
 const memory = require("../memory/store");
 const { audit } = require("../utils/audit");
+const { query } = require("../db/pool");
 const { lookupLR, temporalDecay, hopAttenuation, computePosterior, CONFIDENCE_THRESHOLD } = require("./cpt");
 
 const RCA_SYSTEM_PROMPT = `You are the RootCauseAnalyst in an RCA investigation team for cloud infrastructure.
@@ -448,21 +449,77 @@ Reply as JSON:
 }
 
 /**
- * Search evidence from M6 memory (historical incidents and SOPs).
- * This implements the search_evidence tool from the spec.
+ * Search evidence from multiple sources:
+ * 1. monitor_metrics_history (live metrics around the incident window)
+ * 2. action_history (system actions and anomalies)
+ * 3. M6 memory (historical incidents and SOPs)
  */
-async function searchEvidence(query, topK = 5) {
+async function searchEvidence(query, topK = 5, { anomalyType = null, windowMinutes = 30 } = {}) {
+  const results = [];
+  const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+
+  // 1. Recent metrics history
   try {
-    const results = await memory.search("M6", query, topK);
-    return results;
-  } catch {
-    // Fallback: search M3 (SOPs)
-    try {
-      return await memory.search("M3", query, topK);
-    } catch {
-      return [];
+    const metricsRes = await query(
+      `SELECT * FROM monitor_metrics_history
+       WHERE timestamp >= $1
+       ORDER BY timestamp DESC LIMIT $2`,
+      [since, topK * 2]
+    );
+    for (const row of metricsRes.rows) {
+      results.push({
+        source: "monitor_metrics_history",
+        content: `Metrics at ${row.timestamp}: CPU ${row.cpu}% RAM ${row.ram}% Disk ${row.disk ?? "null"}% Latency ${row.latency_ms ?? "null"}ms`,
+        metadata: row,
+      });
     }
+  } catch (e) {
+    console.warn("[rca] metrics history query failed:", e.message);
   }
+
+  // 2. Recent action history (anomalies, deployments, monitor events)
+  try {
+    const actionRes = await query(
+      `SELECT * FROM action_history
+       WHERE timestamp >= $1
+       ORDER BY timestamp DESC LIMIT $2`,
+      [since, topK * 2]
+    );
+    for (const row of actionRes.rows) {
+      results.push({
+        source: "action_history",
+        content: `${row.category}/${row.action}: ${row.target} (${row.result})`,
+        metadata: row,
+      });
+    }
+  } catch (e) {
+    console.warn("[rca] action history query failed:", e.message);
+  }
+
+  // 3. M6 memory
+  try {
+    const memResults = await memory.search("M6", query, topK);
+    for (const r of memResults) {
+      results.push({
+        source: "M6",
+        content: typeof r === "string" ? r : r.content || r.text || JSON.stringify(r),
+        metadata: r?.metadata || {},
+      });
+    }
+  } catch {
+    try {
+      const m3Results = await memory.search("M3", query, topK);
+      for (const r of m3Results) {
+        results.push({
+          source: "M3",
+          content: typeof r === "string" ? r : r.content || r.text || JSON.stringify(r),
+          metadata: r?.metadata || {},
+        });
+      }
+    } catch {}
+  }
+
+  return results.slice(0, topK * 3);
 }
 
 /**
@@ -531,8 +588,11 @@ async function analyze({ anomaly, metrics, emitIo, onChunk }) {
   // 7. Build causal chain
   const causalChain = buildCausalChain(scored, anomaly, affectedNode);
 
-  // 8. Search evidence from historical incidents
-  const evidence = await searchEvidence(`${anomaly.type} ${anomaly.message}`, 5);
+  // 8. Search evidence from historical incidents, live metrics, and action history
+  const evidence = await searchEvidence(`${anomaly.type} ${anomaly.message}`, 5, {
+    anomalyType: anomaly.type,
+    windowMinutes: 60,
+  });
 
   // 9. Qwen reasoning over the causal chain
   const qwenAnalysis = await qwenCausalReasoning({

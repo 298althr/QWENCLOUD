@@ -9,7 +9,7 @@ import { AreaChart } from "@/components/charts/AreaChart";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { PageHeader, SectionCard, MetricCard, StatusPill, PageLoader } from "@/components/design-system";
 import RcaPanel from "@/components/RcaPanel";
-import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle, History, GitBranch, RotateCcw } from "lucide-react";
+import { Activity, Cpu, MemoryStick, HardDrive, Container, Network, AlertTriangle, History, GitBranch, RotateCcw, Server } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAX_POINTS = 60;
@@ -34,8 +34,11 @@ export default function MonitoringPage() {
   const [actionHistory, setActionHistory] = useState<any[]>([]);
   const [versions, setVersions] = useState<any[]>([]);
   const [rollingBack, setRollingBack] = useState(false);
+  const [health, setHealth] = useState<any>(null);
 
   useEffect(() => {
+    // Fetch real backend health status (CPU/RAM/Disk + services)
+    api.health().then((h) => setHealth(h)).catch(() => {});
     // Load historical metrics on mount to pre-fill graphs
     api.monitorHistory(60, "all").then((r) => {
       if (r.metrics && r.metrics.length > 0) {
@@ -124,6 +127,28 @@ export default function MonitoringPage() {
           </StatusPill>
         }
       />
+
+      {health && health.status !== "ok" && (
+        <div className={cn(
+          "rounded-lg border p-3 flex items-start gap-3",
+          health.status === "degraded" ? "border-yellow-500/30 bg-yellow-500/10" : "border-red-500/30 bg-red-500/10"
+        )}>
+          <Server className={cn("h-5 w-5 mt-0.5", health.status === "degraded" ? "text-yellow-400" : "text-red-400")} />
+          <div>
+            <p className={cn("text-sm font-medium", health.status === "degraded" ? "text-yellow-200" : "text-red-200")}>
+              {health.status === "degraded" ? "System degraded" : "System error"}
+            </p>
+            <p className="text-xs text-white/50">{health.summary || health.error}</p>
+            {health.resources && (
+              <div className="flex flex-wrap gap-2 mt-2 text-xs text-white/40">
+                <span>CPU {health.resources.cpu?.percent}%</span>
+                <span>RAM {health.resources.ram?.percent}%</span>
+                <span>Disk {health.resources.disk?.percent ?? "—"}%</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* KPI row */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

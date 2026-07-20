@@ -430,44 +430,80 @@ async function checkCascadeEffects(anomaly, emitIo) {
 /**
  * Aggregate service health across all running containers.
  * Returns per-service health status: green (all healthy), amber (degraded), red (down).
+ * Now uses CPU/RAM thresholds aligned with host-level monitoring.
  */
 async function getServiceHealth() {
   try {
     const topology = await buildTopology();
+    const containers = await listAllContainers(false);
+    const hostMem = await si.mem().catch(() => null);
+    const hostMemTotal = hostMem ? hostMem.total : 0;
     const services = [];
 
     for (const [serviceName, group] of Object.entries(topology.services)) {
       const containerHealths = [];
       for (const container of group.containers) {
+        let memUsed = 0;
+        let memPercent = 0;
+        let cpuPercent = 0;
+
         try {
-          const stats = await getParsedStats(container.id);
+          const info = await inspectContainer(container.id);
+          const state = info.State || {};
+          const memStats = info.MemoryStats || {};
+          memUsed = memStats.usage || 0;
+          const memLimit = memStats.limit || hostMemTotal || 1;
+          memPercent = Number(((memUsed / memLimit) * 100).toFixed(2));
+
+          // CPU percent per-container relative to one core
+          const cpuDelta = (info.CpuStats?.cpu_stats?.cpu_usage?.total_usage || 0) -
+            (info.CpuStats?.precpu_stats?.cpu_usage?.total_usage || 0);
+          const systemDelta = (info.CpuStats?.cpu_stats?.system_cpu_usage || 0) -
+            (info.CpuStats?.precpu_stats?.system_cpu_usage || 0);
+          cpuPercent = systemDelta > 0
+            ? Number(((cpuDelta / systemDelta) * 100).toFixed(2))
+            : 0;
+
           containerHealths.push({
             name: container.name,
-            state: container.state,
-            cpuPercent: stats.cpuPercent || 0,
-            memoryPercent: stats.memPercent || 0,
-            memoryUsedMB: stats.memUsageMB || 0,
+            state: state.Status || container.state,
+            health: state.Health?.Status || "none",
+            cpuPercent,
+            memoryPercent: memPercent,
+            memoryUsedMB: Math.round(memUsed / 1024 / 1024),
+            oomKilled: !!state.OOMKilled,
+            exitCode: state.ExitCode ?? null,
+            startedAt: state.StartedAt || null,
           });
         } catch (e) {
           containerHealths.push({
             name: container.name,
             state: container.state,
+            health: "unknown",
             cpuPercent: 0,
             memoryPercent: 0,
             memoryUsedMB: 0,
+            oomKilled: false,
+            exitCode: null,
+            startedAt: null,
           });
         }
       }
 
       const running = containerHealths.filter((c) => c.state === "running").length;
       const total = containerHealths.length;
-      const anyUnhealthy = containerHealths.some(
-        (c) => c.cpuPercent > THRESHOLDS.CPU_PERCENT || c.memoryPercent > THRESHOLDS.RAM_PERCENT
+      const anyUnhealthy = containerHealths.some((c) =>
+        c.health === "unhealthy" ||
+        c.oomKilled ||
+        (typeof c.exitCode === "number" && c.exitCode !== 0) ||
+        c.memoryPercent > THRESHOLDS.RAM_PERCENT ||
+        c.cpuPercent > THRESHOLDS.CPU_PERCENT
       );
+      const someRunning = running > 0 && running < total;
 
       let status = "green";
       if (running === 0) status = "red";
-      else if (anyUnhealthy || running < total) status = "amber";
+      else if (anyUnhealthy || someRunning) status = "amber";
 
       services.push({
         name: serviceName,
@@ -481,7 +517,8 @@ async function getServiceHealth() {
 
     const allGreen = services.every((s) => s.status === "green");
     const anyRed = services.some((s) => s.status === "red");
-    const overall = anyRed ? "red" : allGreen ? "green" : "amber";
+    const anyAmber = services.some((s) => s.status === "amber");
+    const overall = anyRed ? "red" : anyAmber ? "amber" : allGreen ? "green" : "unknown";
 
     return { overall, services, timestamp: new Date().toISOString() };
   } catch (e) {

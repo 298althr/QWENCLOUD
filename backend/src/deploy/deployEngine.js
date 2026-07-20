@@ -4,10 +4,17 @@
 
 const fs = require("fs");
 const path = require("path");
+const si = require("systeminformation");
 const { executeTool } = require("../qwen/toolExecutor");
 const { store } = require("../memory/store");
 
 const CLONE_ROOT = "/tmp/althr-clones";
+
+// Safety limits for resource-constrained hosts (e.g. 1C1G Alibaba ECS)
+const SAFE_BUILD_CPU_PCT = 70;
+const SAFE_BUILD_RAM_PCT = 75;
+const CONTAINER_MEMORY_MB = 256;
+const CONTAINER_CPUS = 0.5;
 
 const STACKS = {
   node: {
@@ -237,6 +244,29 @@ function auditDeploymentFiles(repoPath, stackKey, files) {
   return findings;
 }
 
+async function checkHostHeadroom() {
+  try {
+    const [cpuLoad, mem] = await Promise.all([si.currentLoad(), si.mem()]);
+    const cpu = Number(cpuLoad.currentLoad.toFixed(2));
+    const used = mem.total - (mem.available || mem.free);
+    const ram = Number(((used / mem.total) * 100).toFixed(2));
+    const memAvailableMB = Math.round((mem.available || mem.free) / 1024 / 1024);
+    return {
+      ok: cpu < SAFE_BUILD_CPU_PCT && ram < SAFE_BUILD_RAM_PCT,
+      cpu,
+      ram,
+      memAvailableMB,
+      reason: cpu >= SAFE_BUILD_CPU_PCT
+        ? `CPU ${cpu}% >= ${SAFE_BUILD_CPU_PCT}%`
+        : ram >= SAFE_BUILD_RAM_PCT
+          ? `RAM ${ram}% >= ${SAFE_BUILD_RAM_PCT}%`
+          : null,
+    };
+  } catch (e) {
+    return { ok: false, cpu: null, ram: null, memAvailableMB: 0, reason: e.message };
+  }
+}
+
 async function isPortInUse(port) {
   try {
     const res = await fetch(`http://localhost:${port}`, { signal: AbortSignal.timeout(1000) });
@@ -284,6 +314,17 @@ async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
 
   fs.mkdirSync(CLONE_ROOT, { recursive: true });
 
+  // 0. Resource headroom check before doing anything expensive
+  const headroom = await checkHostHeadroom();
+  if (!headroom.ok) {
+    return {
+      success: false,
+      stage: "precheck",
+      error: `Host is out of headroom (${headroom.reason}). Wait for load to drop before deploying.`,
+      headroom,
+    };
+  }
+
   // 1. Clone
   const cloneResult = await executeTool("git_clone", { repo_url, dest: cloneDir });
   if (cloneResult.exit_code !== 0) {
@@ -297,6 +338,21 @@ async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
 
   // 2. Audit deployment files
   const findings = auditDeploymentFiles(webRoot, stackKey, rootFiles);
+
+  // Reject build-heavy stacks (Next.js) on resource-constrained hosts to avoid CPU/RAM blowout
+  if (stackKey === "nextjs" && !rootFiles.includes("Dockerfile")) {
+    findings.push({
+      severity: "critical",
+      message: "Next.js apps require npm run build which is unsafe on this 1C1G host. Provide a pre-built Dockerfile or deploy elsewhere.",
+    });
+    return {
+      success: false,
+      stage: "audit",
+      error: "Next.js build would exceed host resources. Provide a pre-built Dockerfile or use a larger instance.",
+      findings,
+      cloneDir,
+    };
+  }
 
   // 3. Determine port (avoid conflicts)
   const containerPort = stack.defaultPort;
@@ -313,13 +369,13 @@ async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
     path: webRoot,
     dockerfile: dockerfileContent,
     tag,
-    timeout: 600000,
+    timeout: 300000,
   });
   if (buildResult.exit_code !== 0) {
     return { success: false, stage: "build", error: buildResult.stderr || buildResult.stdout, findings, cloneDir };
   }
 
-  // 6. Run (retry on host port conflict)
+  // 6. Run with resource limits (retry on host port conflict)
   let containerName = `althr-${repoName}-${timestamp}`;
   let runResult;
   let attempts = 0;
@@ -331,6 +387,8 @@ async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
       ports: `${currentHostPort}:${containerPort}`,
       env_vars,
       name: containerName,
+      memory: `${CONTAINER_MEMORY_MB}m`,
+      cpus: `${CONTAINER_CPUS}`,
     });
     if (runResult.exit_code === 0) break;
     if (/port is already allocated/i.test(runResult.stderr || runResult.stdout)) {

@@ -98,12 +98,46 @@ app.set("io", io);
 
 // ---- Health (no auth) ----
 app.get("/api/health", async (req, res) => {
-  const health = { status: "ok", timestamp: new Date().toISOString() };
+  const si = require("systeminformation");
+  const health = { timestamp: new Date().toISOString() };
   try {
-    const pgOk = await pool.query("SELECT 1").then(() => true).catch(() => false);
-    const redisOk = redisClient.isOpen ? await redisClient.ping().then(() => true).catch(() => false) : false;
-    health.services = { postgres: pgOk ? "ok" : "down", redis: redisOk ? "ok" : "down" };
-  } catch {
+    const [pgOk, redisOk, cpuLoad, mem, fsSize] = await Promise.all([
+      pool.query("SELECT 1").then(() => true).catch(() => false),
+      redisClient.isOpen ? redisClient.ping().then(() => true).catch(() => false) : false,
+      si.currentLoad(),
+      si.mem(),
+      si.fsSize().catch(() => []),
+    ]);
+    const cpu = Number(cpuLoad.currentLoad.toFixed(2));
+    const used = mem.total - (mem.available || mem.free);
+    const ram = Number(((used / mem.total) * 100).toFixed(2));
+    const disk = fsSize[0] ? Number(fsSize[0].use.toFixed(2)) : null;
+
+    const cpuStatus = cpu >= 85 ? "critical" : cpu >= 60 ? "warning" : "ok";
+    const ramStatus = ram >= 90 ? "critical" : ram >= 70 ? "warning" : "ok";
+    const diskStatus = disk !== null && disk >= 85 ? "critical" : disk !== null && disk >= 70 ? "warning" : "ok";
+
+    const worst = [cpuStatus, ramStatus, diskStatus].some((s) => s === "critical") ? "critical" :
+      [cpuStatus, ramStatus, diskStatus].some((s) => s === "warning") ? "warning" : "ok";
+
+    health.status = worst === "ok" ? "ok" : "degraded";
+    health.resources = {
+      cpu: { value: cpu, percent: cpu, status: cpuStatus, threshold_warn: 60, threshold_crit: 85 },
+      ram: { value: ram, percent: ram, status: ramStatus, threshold_warn: 70, threshold_crit: 90 },
+      disk: { value: disk, percent: disk, status: diskStatus, threshold_warn: 70, threshold_crit: 85 },
+    };
+    health.services = {
+      postgres: pgOk ? "ok" : "down",
+      redis: redisOk ? "ok" : "down",
+    };
+    health.summary = worst === "ok"
+      ? "All systems healthy"
+      : worst === "warning"
+        ? `System under pressure: CPU ${cpu}% RAM ${ram}% Disk ${disk}%`
+        : `System critical: CPU ${cpu}% RAM ${ram}% Disk ${disk}%`;
+  } catch (e) {
+    health.status = "error";
+    health.error = e.message;
     health.services = { postgres: "down", redis: "down" };
   }
   res.json(health);
