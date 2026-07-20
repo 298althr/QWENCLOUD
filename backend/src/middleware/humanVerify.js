@@ -131,8 +131,8 @@ function humanVerifyMiddleware(req, res, next) {
   if (HUMAN_PUBLIC_ENDPOINTS.has(req.path)) return next();
   if (HUMAN_PUBLIC_ENDPOINTS.has(req.baseUrl + req.path)) return next();
 
-  // Check for token in header or cookie
-  const token = req.headers["x-human-token"] || req.cookies?.human_token;
+  // Check for token in header or cookie (cookie name must match frontend)
+  const token = req.headers["x-human-token"] || req.cookies?.althr_human_token || req.cookies?.human_token;
 
   if (isTokenValid(token)) {
     return next();

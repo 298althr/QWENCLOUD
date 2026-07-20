@@ -15,13 +15,44 @@ export default function VerifyPage() {
   const [progress, setProgress] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [isBot, setIsBot] = useState(false);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("althr_human_token");
-    if (token) {
-      router.push("/dashboard");
+    // Bot detection: check for Playwright, Puppeteer, Selenium, and other automation signatures
+    const w = window as any;
+    const nav = navigator as any;
+    const botSignals = [
+      w.__playwright,
+      w.__pw_manual,
+      nav.webdriver === true,
+      nav.webdriver !== undefined && nav.webdriver !== false,
+      w.__selenium_unwrapped,
+      w.__webdriver_evaluate,
+      w.__driver_evaluate,
+      w.__webdriver_script_function,
+      w.__driver_script_function,
+      nav.languages === undefined,
+      // Playwright sets a specific user agent
+      /HeadlessChrome/.test(nav.userAgent),
+      /playwright/i.test(nav.userAgent),
+    ];
+    const detected = botSignals.some(Boolean);
+    if (detected) {
+      setIsBot(true);
+      return;
     }
+    // Check for missing typical browser features that headless browsers lack
+    if (typeof w.chrome === "undefined" && !nav.userAgent.includes("Firefox")) {
+      // Chrome should have window.chrome — headless might not
+      // But don't block — just flag
+    }
+  }, []);
+
+  useEffect(() => {
+    // If a valid token exists, redirect to dashboard.
+    // But don't auto-redirect — let the user click to verify or go to dashboard manually.
+    // This prevents a loop where stale tokens block re-verification.
   }, []);
 
   function handleClick() {
@@ -196,6 +227,35 @@ self.onmessage = function(e) {
   }
 
   const isWorking = status === "fetching" || status === "computing" || status === "verifying";
+
+  if (isBot) {
+    return (
+      <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="relative rounded-3xl overflow-hidden border border-red-500/20 bg-white/5 backdrop-blur-xl p-8 md:p-10">
+            <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-red-500/10 blur-3xl" />
+            <div className="relative">
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                  <AlertCircle className="w-8 h-8 text-red-400" />
+                </div>
+              </div>
+              <h1 className="text-xl font-semibold text-white text-center mb-2">
+                Human Access Only
+              </h1>
+              <p className="text-sm text-white/50 text-center mb-4">
+                This site is protected by proof-of-work human verification.
+                Automated browsers, bots, and testing frameworks (Playwright, Puppeteer, Selenium) are not allowed.
+              </p>
+              <p className="text-xs text-white/30 text-center">
+                If you are a human, please open this page in a standard web browser.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center p-4">
