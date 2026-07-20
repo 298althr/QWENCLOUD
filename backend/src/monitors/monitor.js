@@ -238,53 +238,51 @@ async function cacheTelemetry({ cpuLoad, mem, fsSize, processes }) {
       })
     );
 
-    if (processes && processes.length > 0) {
-      const top_cpu = processes
-        .slice()
-        .sort((a, b) => (b.cpu || 0) - (a.cpu || 0))
-        .slice(0, 10)
-        .map((p) => ({
-          pid: p.pid,
-          name: p.name,
-          cpu: Number((p.cpu || 0).toFixed(2)),
-          mem: Number((p.mem || 0).toFixed(2)),
-          command: p.command || p.name,
-        }));
-      await redisClient.setEx(
-        "althr:telemetry:cpu",
-        TTL,
-        JSON.stringify({ cpu_overall, cpu_cores, top_processes: top_cpu })
-      );
+    const top_cpu = (processes || [])
+      .slice()
+      .sort((a, b) => (b.cpu || 0) - (a.cpu || 0))
+      .slice(0, 10)
+      .map((p) => ({
+        pid: p.pid,
+        name: p.name,
+        cpu: Number((p.cpu || 0).toFixed(2)),
+        mem: Number((p.mem || 0).toFixed(2)),
+        command: p.command || p.name,
+      }));
+    await redisClient.setEx(
+      "althr:telemetry:cpu",
+      TTL,
+      JSON.stringify({ cpu_overall, cpu_cores, top_processes: top_cpu })
+    );
 
-      const used = mem.total - (mem.available || mem.free);
-      const top_mem = processes
-        .slice()
-        .sort((a, b) => (b.mem || 0) - (a.mem || 0))
-        .slice(0, 20)
-        .map((p) => ({
-          pid: p.pid,
-          name: p.name,
-          mem_percent: Number((p.mem || 0).toFixed(2)),
-          mem_mb: Math.round(((p.mem || 0) / 100) * (mem.total / 1024 / 1024)),
-          cpu: Number((p.cpu || 0).toFixed(2)),
-          command: p.command || p.name,
-        }));
-      await redisClient.setEx(
-        "althr:telemetry:ram",
-        TTL,
-        JSON.stringify({
-          total_mb: Math.round(mem.total / 1024 / 1024),
-          used_mb: Math.round(used / 1024 / 1024),
-          available_mb: Math.round((mem.available || mem.free) / 1024 / 1024),
-          buff_cache_mb: Math.round((mem.used - used) / 1024 / 1024),
-          used_percent: Number(((used / mem.total) * 100).toFixed(2)),
-          available_percent: Number((((mem.available || mem.free) / mem.total) * 100).toFixed(2)),
-          swap_total_mb: Math.round((mem.swaptotal || 0) / 1024 / 1024),
-          swap_used_mb: Math.round((mem.swapused || 0) / 1024 / 1024),
-          top_processes: top_mem,
-        })
-      );
-    }
+    const used = mem.total - (mem.available || mem.free);
+    const top_mem = (processes || [])
+      .slice()
+      .sort((a, b) => (b.mem || 0) - (a.mem || 0))
+      .slice(0, 20)
+      .map((p) => ({
+        pid: p.pid,
+        name: p.name,
+        mem_percent: Number((p.mem || 0).toFixed(2)),
+        mem_mb: Math.round(((p.mem || 0) / 100) * (mem.total / 1024 / 1024)),
+        cpu: Number((p.cpu || 0).toFixed(2)),
+        command: p.command || p.name,
+      }));
+    await redisClient.setEx(
+      "althr:telemetry:ram",
+      TTL,
+      JSON.stringify({
+        total_mb: Math.round(mem.total / 1024 / 1024),
+        used_mb: Math.round(used / 1024 / 1024),
+        available_mb: Math.round((mem.available || mem.free) / 1024 / 1024),
+        buff_cache_mb: Math.round((mem.used - used) / 1024 / 1024),
+        used_percent: Number(((used / mem.total) * 100).toFixed(2)),
+        available_percent: Number((((mem.available || mem.free) / mem.total) * 100).toFixed(2)),
+        swap_total_mb: Math.round((mem.swaptotal || 0) / 1024 / 1024),
+        swap_used_mb: Math.round((mem.swapused || 0) / 1024 / 1024),
+        top_processes: top_mem,
+      })
+    );
   } catch (e) {
     console.warn("[monitor] cache telemetry failed:", e.message);
   }
