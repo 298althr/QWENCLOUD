@@ -10,6 +10,22 @@ const { store } = require("../memory/store");
 
 const CLONE_ROOT = "/tmp/althr-clones";
 
+function normalizeGitHubUrl(url) {
+  let cleaned = url.trim().replace(/\/+$/, "");
+  try {
+    const u = new URL(cleaned);
+    if (u.hostname.includes("github.com")) {
+      const parts = u.pathname.split("/").filter(Boolean);
+      if (parts.length >= 2) {
+        const owner = parts[0];
+        const repo = parts[1].replace(/\.git$/, "");
+        cleaned = `https://github.com/${owner}/${repo}.git`;
+      }
+    }
+  } catch {}
+  return cleaned;
+}
+
 // Safety limits for resource-constrained hosts (e.g. 1C1G Alibaba ECS)
 const SAFE_BUILD_CPU_PCT = 70;
 const SAFE_BUILD_RAM_PCT = 75;
@@ -302,7 +318,8 @@ async function waitForHealth(url, attempts = 10, delayMs = 2000) {
 }
 
 async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
-  const repoName = repo_url
+  const cleanUrl = normalizeGitHubUrl(repo_url);
+  const repoName = cleanUrl
     .replace(/[^a-zA-Z0-9]/g, "-")
     .toLowerCase()
     .replace(/-+/g, "-")
@@ -326,7 +343,7 @@ async function deployFromRepo({ repo_url, requestedPort, env_vars = [] }) {
   }
 
   // 1. Clone
-  const cloneResult = await executeTool("git_clone", { repo_url, dest: cloneDir });
+  const cloneResult = await executeTool("git_clone", { repo_url: cleanUrl, dest: cloneDir });
   if (cloneResult.exit_code !== 0) {
     return { success: false, stage: "clone", error: cloneResult.stderr || cloneResult.stdout };
   }

@@ -145,8 +145,18 @@ async function container_action({ action, container_id }) {
 }
 
 async function git_clone({ repo_url, dest }) {
-  const res = await runShell(`git clone ${repo_url} ${dest ? `"${dest}"` : ""}`, 60000);
-  return { repo_url, dest, ...res };
+  let url = repo_url;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("github.com")) {
+      const parts = u.pathname.split("/").filter(Boolean);
+      if (parts.length >= 2) {
+        url = `https://github.com/${parts[0]}/${parts[1].replace(/\.git$/, "")}.git`;
+      }
+    }
+  } catch {}
+  const res = await runShell(`git clone ${url} ${dest ? `"${dest}"` : ""}`, 60000);
+  return { repo_url: url, dest, ...res };
 }
 
 async function run_security_scan({ tool }) {
