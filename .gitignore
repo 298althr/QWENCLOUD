@@ -42,9 +42,22 @@ Thumbs.db
 docker/data/
 docker-compose.dev.yml
 
-# Local runtime data and internal docs
-SOS-volumes/
+# Local runtime data, internal docs, and non-production documents
 docs/
+SOS-volumes/
+scripts/
+backend/telegram-notifications/
+
+# Keep only the root README.md on GitHub
+*.md
+!/README.md
+
+# Non-production HTML reports and docs (not generated Next.js build files)
+audit-report.html
+frontend/public/sos-architecture-review.html
+
+# Standalone root reports
+FUTURE.md
 DESIGN.md
 
 # Scratch / throwaway test scripts
