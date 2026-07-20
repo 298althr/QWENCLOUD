@@ -82,59 +82,6 @@ function verifySolution(challenge, nonce, gestureData) {
 
     // Must have enough movement points (humans produce many small mouse events)
     if (!points || points.length < 5) return { valid: false, reason: "Insufficient interaction data" };
-
-    // Check movement entropy: bots move in perfectly straight lines, humans don't
-    // Calculate variance in Y-axis deviation from the best-fit line
-    if (points.length >= 10) {
-      const n = points.length;
-      const xs = points.map(p => p.x);
-      const ys = points.map(p => p.y);
-      const xMean = xs.reduce((a, b) => a + b, 0) / n;
-      const yMean = ys.reduce((a, b) => a + b, 0) / n;
-
-      // Linear regression slope
-      let num = 0, den = 0;
-      for (let i = 0; i < n; i++) {
-        num += (xs[i] - xMean) * (ys[i] - yMean);
-        den += (xs[i] - xMean) ** 2;
-      }
-      const slope = den === 0 ? 0 : num / den;
-      const intercept = yMean - slope * xMean;
-
-      // Calculate residual variance (how much actual movement deviates from a straight line)
-      let residualSum = 0;
-      for (let i = 0; i < n; i++) {
-        const predicted = slope * xs[i] + intercept;
-        residualSum += (ys[i] - predicted) ** 2;
-      }
-      const residualVariance = residualSum / n;
-
-      // Humans have natural jitter — residual variance should be > 0.5 pixels
-      // Bots that automate mouse moves tend to have near-zero variance
-      if (residualVariance < 0.5) {
-        return { valid: false, reason: "Movement pattern too perfect — are you a bot?" };
-      }
-    }
-
-    // Check velocity profile: humans accelerate and decelerate, bots often move at constant speed
-    if (points.length >= 6) {
-      const velocities = [];
-      for (let i = 1; i < points.length; i++) {
-        const dx = points[i].x - points[i - 1].x;
-        const dy = points[i].y - points[i - 1].y;
-        const dt = points[i].t - points[i - 1].t || 1;
-        velocities.push(Math.sqrt(dx * dx + dy * dy) / dt);
-      }
-      // Check that velocity varies (not constant)
-      const vMean = velocities.reduce((a, b) => a + b, 0) / velocities.length;
-      let vVar = 0;
-      for (const v of velocities) vVar += (v - vMean) ** 2;
-      vVar /= velocities.length;
-      // If velocity variance is near zero, it's likely a bot
-      if (vMean > 0 && vVar / (vMean * vMean) < 0.01) {
-        return { valid: false, reason: "Movement speed too uniform — are you a bot?" };
-      }
-    }
   }
 
   // Verify proof-of-work: SHA-256(challenge + nonce) must start with DIFFICULTY zero bytes

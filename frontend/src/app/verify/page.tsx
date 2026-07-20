@@ -196,7 +196,7 @@ self.onmessage = function(e) {
             }, 800);
 
             setTimeout(() => {
-              router.push("/dashboard");
+              router.push("/");
             }, 2500);
           } catch (err: any) {
             setStatus("error");
