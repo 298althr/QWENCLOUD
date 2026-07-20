@@ -136,9 +136,8 @@ function OverviewTab() {
           </h1>
           <p className="text-lg text-ink-400">
             ALTHR Autopilot watches your servers, figures out what is wrong when things break,
-            and fixes problems without a human typing commands. It uses Qwen models from Alibaba
-            Cloud to think through problems, check its own work, and take safe actions. You stay
-            in control with approval queues, audit logs, and a kill switch.
+            and fixes problems before they become outages. It asks you before taking any risky
+            action and keeps a complete log of everything it does.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/dashboard">
@@ -159,8 +158,8 @@ function OverviewTab() {
         <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           {[
             { icon: <Activity className="h-5 w-5" />, label: "Live Monitoring", value: "CPU / RAM / Disk / Net" },
-            { icon: <Brain className="h-5 w-5" />, label: "AI Diagnosis", value: "Qwen-powered RCA" },
-            { icon: <ShieldCheck className="h-5 w-5" />, label: "7-Layer Safety", value: "SAF Framework" },
+            { icon: <Brain className="h-5 w-5" />, label: "AI Diagnosis", value: "Finds root causes" },
+            { icon: <ShieldCheck className="h-5 w-5" />, label: "Safety first", value: "Human approval" },
             { icon: <ClipboardCheck className="h-5 w-5" />, label: "Human Approval", value: "HITL Queue" },
           ].map((card, i) => (
             <motion.div
@@ -191,7 +190,7 @@ function OverviewTab() {
             {
               icon: <Brain className="h-5 w-5" />,
               title: "Diagnoses problems with AI",
-              body: "When something looks wrong, the AI agent uses Qwen models to reason through the symptoms, gather evidence, and produce a root cause analysis with a confidence score.",
+              body: "When something looks wrong, the AI agent looks at the symptoms and evidence, then tells you what it thinks is happening and how confident it is.",
             },
             {
               icon: <Zap className="h-5 w-5" />,
@@ -216,17 +215,15 @@ function OverviewTab() {
         </div>
       </section>
 
-      {/* Why it stands out */}
+      {/* Why it helps */}
       <section className="space-y-6">
-        <h2 className="text-2xl font-semibold text-ink-100">Why this submission stands out</h2>
+        <h2 className="text-2xl font-semibold text-ink-100">Why it helps</h2>
         <div className="grid gap-4 md:grid-cols-2">
           {[
-            { num: "1", title: "Real autonomous action, not just alerts", body: "The agent does not just send notifications. It runs commands, restarts services, and fixes problems. You can watch it work in real time." },
-            { num: "2", title: "7-layer safety framework (SAF)", body: "Every action passes through 7 independent checks: asset classification, identity, network segmentation, policy enforcement, immutable logging, containment, and governance." },
-            { num: "3", title: "Decision intelligence pipeline", body: "Three separate AI modules (DRE, DREV, CRDS) debate each action before it runs. One proposes, one reviews, one can veto. This prevents bad decisions." },
-            { num: "4", title: "Works with Qwen models on Alibaba Cloud", body: "Built specifically for the Qwen Cloud track. Uses qwen-turbo, qwen-plus, and qwen-max for different tasks based on cost and capability needs." },
-            { num: "5", title: "Persistent memory across sessions", body: "The agent remembers past incidents, what fixed them, and what did not work. It gets smarter over time instead of starting fresh each time." },
-            { num: "6", title: "Full web dashboard with live data", body: "Not a CLI demo. You get a real web UI with live charts, an AI chat console, terminal access, file browser, deployment manager, and audit logs." },
+            { num: "1", title: "Solves problems before you notice", body: "The agent does not just send alerts. It finds the cause and takes action, so small issues do not become outages." },
+            { num: "2", title: "You stay in control", body: "Risky actions wait for your approval. Nothing runs without permission unless the agent is confident it is safe." },
+            { num: "3", title: "Learns from experience", body: "It remembers what worked and what did not, so the same incident gets faster to fix next time." },
+            { num: "4", title: "Everything is logged", body: "Every check, decision, and action is recorded. You can review what happened, when, and why." },
           ].map((item) => (
             <div key={item.num} className="card p-6 space-y-2">
               <div className="flex items-start gap-3">
@@ -249,8 +246,8 @@ function OverviewTab() {
         <div className="flex flex-wrap gap-2">
           {[
             "Next.js 14", "TypeScript", "Tailwind CSS", "Node.js", "Express",
-            "Socket.io", "PostgreSQL", "Redis", "Docker", "Qwen Models",
-            "Alibaba Cloud ECS", "Zod", "JWT", "Helmet", "Framer Motion",
+            "Socket.io", "PostgreSQL", "Redis", "Docker", "AI Models",
+            "Cloud Hosting", "Zod", "JWT", "Helmet", "Framer Motion",
           ].map((tech) => (
             <Badge key={tech} variant="outline" className="text-xs">
               {tech}
