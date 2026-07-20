@@ -46,6 +46,13 @@ const THRESHOLDS = {
 
 const POLL_INTERVAL_MS = Number(process.env.MONITOR_INTERVAL_MS || 60000);
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+}
+
 // Anomaly cooldown: don't re-diagnose the same anomaly type within this window
 const ANOMALY_COOLDOWN_MS = Number(process.env.ANOMALY_COOLDOWN_MS || 5 * 60 * 1000);
 
@@ -126,7 +133,7 @@ async function collectMetrics() {
     si.currentLoad(),
     si.mem(),
     si.fsSize(),
-    si.networkStats().catch(() => []),
+    withTimeout(si.networkStats(), 15000).catch(() => []),
     si.osInfo().catch(() => null),
   ]);
 
@@ -151,7 +158,7 @@ async function collectMetrics() {
   let latency = null;
   if (doHeavy) {
     try {
-      latency = await si.inetLatency("8.8.8.8").catch(() => null);
+      latency = await withTimeout(si.inetLatency("8.8.8.8"), 5000).catch(() => null);
       if (latency !== null) latency = Number(latency.toFixed(2));
     } catch {}
   }
@@ -160,8 +167,8 @@ async function collectMetrics() {
   let ports = [];
   if (doHeavy) {
     const [procs, netConns] = await Promise.all([
-      si.processes().catch(() => ({ list: [] })),
-      si.networkConnections().catch(() => []),
+      withTimeout(si.processes(), 15000).catch(() => ({ list: [] })),
+      withTimeout(si.networkConnections(), 15000).catch(() => []),
     ]);
     processes = procs.list || [];
     ports = (netConns || []).filter((c) => c.state === "LISTEN");

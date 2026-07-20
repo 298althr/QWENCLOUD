@@ -10,6 +10,13 @@ const si = require("systeminformation");
 const { client: redisClient, connect: redisConnect } = require("../db/redis");
 const { get_server_health } = require("../qwen/toolExecutor");
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+}
+
 async function getCachedTelemetry(key, fallback) {
   try {
     await redisConnect();
@@ -46,7 +53,7 @@ router.get("/cpu", async (req, res) => {
     const data = await getCachedTelemetry("cpu", async () => {
       const [load, procs] = await Promise.all([
         si.currentLoad(),
-        si.processes().catch(() => ({ list: [] })),
+        withTimeout(si.processes(), 15000).catch(() => ({ list: [] })),
       ]);
       const top = (procs.list || [])
         .sort((a, b) => (b.cpu || 0) - (a.cpu || 0))
@@ -75,7 +82,7 @@ router.get("/ram", async (req, res) => {
     const data = await getCachedTelemetry("ram", async () => {
       const [mem, procs] = await Promise.all([
         si.mem(),
-        si.processes().catch(() => ({ list: [] })),
+        withTimeout(si.processes(), 15000).catch(() => ({ list: [] })),
       ]);
       const used = mem.total - (mem.available || mem.free);
       const buffCache = mem.used - used;
